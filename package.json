@@ -1,0 +1,25 @@
+{
+    "name": "busstore",
+    "version": "0.0.1",
+    "license": "MIT",
+    "main": "dist/busstore.cjs.js",
+    "module": "dist/busstore.esm.js",
+    "browser": "dist/busstore.umd.js",
+    "scripts": {
+        "build": "rollup -c",
+        "test": "jest --watch",
+        "test-ci": "jest"
+    },
+    "dependencies": {
+        "rollup-plugin-commonjs": "^9.2.0",
+        "rollup-plugin-node-resolve": "^4.0.0",
+        "uuid": "^3.3.2"
+    },
+    "devDependencies": {
+        "jest": "^24.1.0",
+        "react": "^16.8.1"
+    },
+    "files": [
+        "dist"
+    ]
+}
