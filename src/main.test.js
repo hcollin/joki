@@ -285,24 +285,8 @@ describe("fetchService", () => {
         fetch.resetMocks();
     });
 
-    it("Simple raw Fetch with BusStore Results", done => {
-        fetch.mockResponseOnce(JSON.stringify({ test: true }));
-        const AppBus = createBusStore();
 
-        const serv = createFetchService("testFetchService", AppBus, {
-            url: "http://localhost/test/url",
-            format: "json",
-        });
-
-        const fetchId = serv.rawFetch();
-        AppBus.once((sender, msg, eventKey) => {
-            expect(msg.test).toBe(true);
-            done();
-            ("");
-        }, fetchId);
-    });
-
-    xit("Fetch Get promise", done => {
+    it("Fetch Get promise", done => {
         fetch.mockResponseOnce(JSON.stringify({ test: true }));
         const AppBus = createBusStore();
 
@@ -319,16 +303,19 @@ describe("fetchService", () => {
         serv.get({ urlExtension: "/myext" })
             .then(results => {
                 expect(fetch.mock.calls[0][0]).toBe("http://localhost/test/url/myext");
+                expect(fetch.mock.calls[0][1].method).toBe("GET");
+                expect(fetch.mock.calls[0][1].header).toBe(undefined);
+                
                 expect(results.test).toBe(true);
             })
             .catch(err => {
                 console.log("ERROR", err);
             });
 
-        expect.assertions(3);
+        expect.assertions(5);
     });
 
-    xit("Fetch Post Promise", done => {
+    it("Fetch Post Promise", done => {
         fetch.mockResponseOnce(JSON.stringify({ test: true }));
         const AppBus = createBusStore();
 
@@ -342,16 +329,18 @@ describe("fetchService", () => {
             expect(msg).toEqual({ test: true });
         }, "FETCH-POST");
 
-        serv.post({ data: { myData: true }, triggerEvent: false }).then(res => {
+        serv.post({ body: { myData: true }, triggerEvent: false, header: { auth: true} }).then(res => {
             expect(fetch.mock.calls[0][1].method).toBe("POST");
             expect(fetch.mock.calls[0][1].body).toEqual({ myData: true });
+            expect(fetch.mock.calls[0][1].header).toEqual({ auth: true });
+            expect(res).toEqual({test: true});
             done();
         });
 
-        expect.assertions(2);
+        expect.assertions(4);
     });
 
-    xit("Send get Request via Bus", done => {
+    it("Send get Request via Bus", done => {
         fetch.mockResponseOnce(JSON.stringify({ test: true }));
         const AppBus = createBusStore();
 
@@ -367,6 +356,8 @@ describe("fetchService", () => {
             expect(msg.test).toBe(true);
             expect(sender).toBe("testFetchService");
             expect(eventKey).toBe(responseId);
+            expect(fetch.mock.calls[0][1].body).toEqual({bodydata: true});
+            expect(fetch.mock.calls[0][1].header).toEqual({auth: true});
             done();
         }, responseId);
 
@@ -374,6 +365,8 @@ describe("fetchService", () => {
             "test-suite",
             {
                 responseEventKey: responseId,
+                body: { bodydata: true },
+                header: { auth: true }
             },
             "BUS-FETCH-GET"
         );
