@@ -65,8 +65,6 @@ export default Joki;
 
 #### ClassService
 
-Class based services are quite handy for situations where we want to do more than just store data.
-
 ```js
 import {ClassService} from 'joki';
 
@@ -94,10 +92,35 @@ class MyService extends ClassService {
         }
     }
 }
+```
+Class based services are quite handy for situations where we want to do more than just store data.
 
 *To be continued*
 
 #### createReducerService
+
+```js
+import { createReducerService } from 'joki';
+import Joki from './myJokiSetup';
+
+const initialState = {
+    counter: 0
+};
+
+const reducer = (state, action) => {
+    switch(actionö.type) {
+        case "plus":
+            return { counter: state.counter + 1 };
+        case "minus":
+            return { counter: state.counter + 1 };
+        default:
+            return undefined;
+
+    }
+};
+
+createReducerService("MyService", Joki, initialState, reducer);
+```
 
 
 ### Sending messages
