@@ -1,6 +1,6 @@
 import connectJoki from "../joki/connectJoki";
 
-export default function createFetchService(serviceId, busStore, options) {
+export default function createFetchService(serviceId, jokiInstance, options) {
     const { url, format, headers, ...rest } = Object.assign(
         {},
         {
@@ -16,8 +16,8 @@ export default function createFetchService(serviceId, busStore, options) {
 
     const defaultHeaders = headers;
 
-    const bus = connectJoki(serviceId, getState, handleMessage);
-    bus.setJoki(busStore);
+    const joki = connectJoki(serviceId, getState, handleMessage);
+    joki.set(jokiInstance);
 
     const callHistory = [];
 
@@ -98,7 +98,7 @@ export default function createFetchService(serviceId, busStore, options) {
 
     function receiveResults(results, fetchId = null) {
         _addToCallHistory(results);
-        bus.send(results, fetchId);
+        joki.send(results, fetchId);
         
     }
 

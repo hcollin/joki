@@ -284,7 +284,7 @@ describe("reducerService testing", () => {
     });
 });
 
-xdescribe("fetchService", () => {
+describe("fetchService", () => {
     beforeEach(() => {
         fetch.resetMocks();
     });

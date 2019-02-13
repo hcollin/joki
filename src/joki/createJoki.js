@@ -170,17 +170,21 @@ export default function createJoki(options = {}) {
     return {
         subscribe: subscribeServiceProvider,
         unsubscribe: unSubscribeServiceProvider,
-        send: sendMessage,
-        action: sendMessageToSubscriber,
-        listen: listenMessages,
-        once: oneTimeListener,
-        stop: clearListener,
-        debug: setDebugMode,
         services: listSubscribers,
         getService: getCurrentStateOfService,
         serviceUpdated: serviceHasUpdatedItsState,
-        _getListeners: getListeners,
+
+        send: sendMessage,
+        action: sendMessageToSubscriber,
+        
+        listen: listenMessages,
+        once: oneTimeListener,
+        stop: clearListener,
+        
+        debug: setDebugMode,
         getEventKeys: getRegisteredEventKeys,
+        
+        _getListeners: getListeners,
         _isJoki: confirmThatThisAJokiInstance
     };
 }

@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react';
+
 function createJoki(options = {}) {
     let subIdCounter = 0;
 
@@ -25,7 +27,7 @@ function createJoki(options = {}) {
 
     /**
      * Services in the Joki are data storages that usually contain a state and manage their internal state
-     * They send updates to the bus, when their data changes. They can also provide apis
+     * They send updates to the Joki, when their data changes. They can also provide apis
      *
      * @param {string|null} serviceId
      * @param {}
@@ -53,7 +55,7 @@ function createJoki(options = {}) {
     }
 
     /**
-     * Send a message to the bus
+     * Send a message to the Joki
      * @param {*} msg
      * @param {*} options
      */
@@ -141,7 +143,7 @@ function createJoki(options = {}) {
 
     function txt(msg) {
         if (debugMode) {
-            console.debug(`BusStore:Debug: ${msg}`);
+            console.debug(`Joki:Debug: ${msg}`);
         }
     }
 
@@ -163,25 +165,29 @@ function createJoki(options = {}) {
         return eventKeys;
     }
 
-    function confirmThatThisVariableIsABusStore() {
+    function confirmThatThisAJokiInstance() {
         return true;
     }
 
     return {
         subscribe: subscribeServiceProvider,
         unsubscribe: unSubscribeServiceProvider,
-        send: sendMessage,
-        action: sendMessageToSubscriber,
-        listen: listenMessages,
-        once: oneTimeListener,
-        stop: clearListener,
-        debug: setDebugMode,
         services: listSubscribers,
         getService: getCurrentStateOfService,
         serviceUpdated: serviceHasUpdatedItsState,
-        _getListeners: getListeners,
+
+        send: sendMessage,
+        action: sendMessageToSubscriber,
+        
+        listen: listenMessages,
+        once: oneTimeListener,
+        stop: clearListener,
+        
+        debug: setDebugMode,
         getEventKeys: getRegisteredEventKeys,
-        _isJoki: confirmThatThisVariableIsABusStore
+        
+        _getListeners: getListeners,
+        _isJoki: confirmThatThisAJokiInstance
     };
 }
 
@@ -200,7 +206,7 @@ function connectJoki(id, requestStateHandler=null, actionHandler=null) {
         return jokiInstance.subscribe(serviceId, _stateHandler, _actionHandler);
     }
 
-    function removeBusConnection(bus) {
+    function removeJokiConnection(bus) {
         txt(`Remove Subscribtion ${serviceId}`);
         if(jokiInstance !== null) {
             jokiInstance.unSubscribeServiceProvider(serviceId);
@@ -208,12 +214,12 @@ function connectJoki(id, requestStateHandler=null, actionHandler=null) {
         }
     }
 
-    function sendMessageToBus(msg, eventKey=null) {
+    function sendMessageToJoki(msg, eventKey=null) {
         txt(`Send message with key ${eventKey} by ${serviceId}`);
         jokiInstance.send(serviceId, msg, eventKey);
     }
 
-    function addListenerToBusEvent(handlerFn, eventKey=null) {
+    function addJokiEventListener(handlerFn, eventKey=null) {
         const listenerId = jokiInstance.listen(handlerFn, eventKey);
         return () => {
             jokiInstance.stop(listenerId);
@@ -234,7 +240,7 @@ function connectJoki(id, requestStateHandler=null, actionHandler=null) {
 
     function txt(msg) {
         if (debugMode) {
-            console.debug(`BusStoreConnection:Debug: ${msg}`);
+            console.debug(`JokiConnection:Debug: ${msg}`);
         }
     }
 
@@ -242,9 +248,9 @@ function connectJoki(id, requestStateHandler=null, actionHandler=null) {
     txt(`Connection established with serviceId ${serviceId}`);
     return {
         set: setJokiInstance,
-        clear: removeBusConnection,
-        send: sendMessageToBus,
-        listen: addListenerToBusEvent,
+        clear: removeJokiConnection,
+        send: sendMessageToJoki,
+        listen: addJokiEventListener,
         debug: setDebugMode,
         updated: broadcastServiceStateUpdate
     }
@@ -337,7 +343,7 @@ function createReducerService(id, jokiInstance, initState={}, reducerFunction=nu
     }
 }
 
-function createFetchService(serviceId, busStore, options) {
+function createFetchService(serviceId, jokiInstance, options) {
     const { url, format, headers, ...rest } = Object.assign(
         {},
         {
@@ -351,8 +357,8 @@ function createFetchService(serviceId, busStore, options) {
         options
     );
 
-    const bus = connectJoki(serviceId, getState, handleMessage);
-    bus.setJoki(busStore);
+    const joki = connectJoki(serviceId, getState, handleMessage);
+    joki.set(jokiInstance);
 
     const callHistory = [];
 
@@ -433,7 +439,7 @@ function createFetchService(serviceId, busStore, options) {
 
     function receiveResults(results, fetchId = null) {
         _addToCallHistory(results);
-        bus.send(results, fetchId);
+        joki.send(results, fetchId);
         
     }
 
@@ -507,4 +513,72 @@ function createFetchService(serviceId, busStore, options) {
     };
 }
 
-export { createJoki, connectJoki, ClassService, createReducerService, createFetchService };
+function useListenJokiEvent(jokiInstance, options = {}) {
+    const [eventData, updateData] = useState({ data: null, sender: null, eventKey: null });
+
+    const targetEventKey = options.eventKey !== undefined ? options.eventKey : undefined;
+    const targetSender = options.sender !== undefined ? options.sender : undefined;
+
+    useEffect(() => {
+        const listenerId = jokiInstance.listen((sender, msg, eventKey) => {
+            const eventKeyMatch = targetEventKey === undefined || targetEventKey === eventKey ? true : false;
+            const senderMatch = targetSender === undefined || targetSender === sender ? true : false;
+
+            if (eventKeyMatch && senderMatch) {
+                updateData({ data: msg, sender: sender, eventKey: eventKey });
+            }
+        }, targetEventKey);
+
+        return () => {
+            jokiInstance.stop(listenerId);
+        };
+    });
+
+    return [eventData];
+}
+
+function useListenJokiService(jokiInstance, serviceId) {
+    const [data, updateServiceData] = useState({ data: jokiInstance.getService(serviceId), listenerId: null });
+
+    useEffect(() => {
+        if (data.listenerId === null) {
+            const listenerId = jokiInstance.listen((sender, msg, eventKey) => {
+                if (msg === "UPDATE" && eventKey === serviceId) {
+                    const newData = { data: jokiInstance.getService(serviceId), listenerId: data.listenerId };
+                    updateServiceData(newData);
+                }
+            }, serviceId);
+
+            updateServiceData({ data: data.data, listenerId: listenerId });
+        }
+
+        return () => {
+            if (data.listenerId !== null) {
+                jokiInstance.stop(data.listenerId);
+            }
+        };
+    });
+
+    return [data.data];
+}
+
+function trigger(jokiInstance, options = {}) {
+    const sender = options.sender !== undefined ? options.sender : "unknown-react-component";
+    const eventKey = options.eventKey !== undefined ? options.eventKey : "all";
+    const msg = options.data !== undefined ? options.data : options.msg !== undefined ? options.msg : {};
+    const serviceId = options.serviceId !== undefined ? options.serviceId : null;
+    if (serviceId !== null) {
+        return sendToService(jokiInstance, serviceId, sender, msg, eventKey);
+    }
+    return sendToBus(jokiInstance, sender, msg, eventKey);
+}
+
+function sendToBus(jokiInstance, sender, msg, eventKey) {
+    jokiInstance.send(sender, msg, eventKey);
+}
+
+function sendToService(jokiInstance, serviceId, sender, msg, eventKey) {
+    jokiInstance.action(serviceId, sender, msg, eventKey);
+}
+
+export { createJoki, connectJoki, ClassService, createReducerService, createFetchService, useListenJokiEvent, useListenJokiService, trigger };
