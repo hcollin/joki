@@ -1,8 +1,8 @@
 (function (global, factory) {
     typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('react')) :
     typeof define === 'function' && define.amd ? define(['exports', 'react'], factory) :
-    (factory((global.busstore = {}),global.React));
-}(this, (function (exports,react) { 'use strict';
+    (global = global || self, factory(global.busstore = {}, global.react));
+}(this, function (exports, react) { 'use strict';
 
     function createJoki(options = {}) {
         let subIdCounter = 0;
@@ -338,7 +338,12 @@
         }
 
         function reducerRunner(action) {
-            data = reducer({...data}, action);
+            
+            const newData = reducer(data, action);
+            if(newData !== undefined) {
+                data = newData;
+                joki.updated();
+            }
         }
 
         return {
@@ -591,9 +596,11 @@
     exports.createReducerService = createReducerService;
     exports.createFetchService = createFetchService;
     exports.useListenJokiEvent = useListenJokiEvent;
+    exports.useEvent = useListenJokiEvent;
     exports.useListenJokiService = useListenJokiService;
+    exports.useService = useListenJokiService;
     exports.trigger = trigger;
 
     Object.defineProperty(exports, '__esModule', { value: true });
 
-})));
+}));

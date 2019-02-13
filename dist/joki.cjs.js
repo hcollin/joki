@@ -338,7 +338,12 @@ function createReducerService(id, jokiInstance, initState={}, reducerFunction=nu
     }
 
     function reducerRunner(action) {
-        data = reducer({...data}, action);
+        
+        const newData = reducer(data, action);
+        if(newData !== undefined) {
+            data = newData;
+            joki.updated();
+        }
     }
 
     return {
@@ -591,5 +596,7 @@ exports.ClassService = ClassService;
 exports.createReducerService = createReducerService;
 exports.createFetchService = createFetchService;
 exports.useListenJokiEvent = useListenJokiEvent;
+exports.useEvent = useListenJokiEvent;
 exports.useListenJokiService = useListenJokiService;
+exports.useService = useListenJokiService;
 exports.trigger = trigger;

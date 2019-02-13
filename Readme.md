@@ -56,9 +56,54 @@ createReducerService("myService", Joki, {counter: 0}, (state, action) => {
         case "minus":
             return {counter: state.counter + 1};
         default:
-            return state;
+            return undefined; // This inform the Joki that the state did not change
     }
 });
 
 export default Joki;
 ```
+
+#### ClassService
+
+Class based services are quite handy for situations where we want to do more than just store data.
+
+```js
+import {ClassService} from 'joki';
+
+class MyService extends ClassService {
+
+    constructor(jokiInstance) {
+        super({
+            joki: jokiInstance,
+            serviceId: "MyService"
+        });
+
+        this.data = {};
+    }
+
+    // This overrides a function in ClassService and handles current state requests coming from Joki. (like useService hook)
+    getState() {
+        return this.data;
+    }
+
+    // This overrides a function in ClassService and handles incoming messages from Joki
+    messageHandler(sender, message, eventKey) {
+        // acts more or less like a reducer.
+        switch(eventKey) {
+            
+        }
+    }
+}
+
+*To be continued*
+
+#### createReducerService
+
+
+### Sending messages
+
+Simplest way to send a message to Joki is to use the function `trigger`.
+
+    import {trigger} from 'joki';
+    trigger(jokiInstance, {options});
+

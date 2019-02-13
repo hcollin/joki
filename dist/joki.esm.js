@@ -334,7 +334,12 @@ function createReducerService(id, jokiInstance, initState={}, reducerFunction=nu
     }
 
     function reducerRunner(action) {
-        data = reducer({...data}, action);
+        
+        const newData = reducer(data, action);
+        if(newData !== undefined) {
+            data = newData;
+            joki.updated();
+        }
     }
 
     return {
@@ -581,4 +586,4 @@ function sendToService(jokiInstance, serviceId, sender, msg, eventKey) {
     jokiInstance.action(serviceId, sender, msg, eventKey);
 }
 
-export { createJoki, connectJoki, ClassService, createReducerService, createFetchService, useListenJokiEvent, useListenJokiService, trigger };
+export { createJoki, connectJoki, ClassService, createReducerService, createFetchService, useListenJokiEvent, useListenJokiEvent as useEvent, useListenJokiService, useListenJokiService as useService, trigger };
