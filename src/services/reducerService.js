@@ -27,7 +27,12 @@ export default function createReducerService(id, jokiInstance, initState={}, red
     }
 
     function reducerRunner(action) {
-        data = reducer({...data}, action);
+        
+        const newData = reducer(data, action);
+        if(newData !== undefined) {
+            data = newData;
+            joki.updated();
+        }
     }
 
     return {
