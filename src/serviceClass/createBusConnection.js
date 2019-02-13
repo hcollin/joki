@@ -8,13 +8,14 @@ export default function createBusConnection(id, requestStateHandler=null, action
 
     let debugMode = false;
 
-    function setBusConnection(bus) {
-        
+    function setBusConnection(bus) {    
         busStore = bus;
+        txt(`Subscribe connection ${serviceId}`);
         return busStore.subscribe(serviceId, _stateHandler, _actionHandler);
     }
 
     function removeBusConnection(bus) {
+        txt(`Remove Subscribtion ${serviceId}`);
         if(busStore !== null) {
             busStore.unSubscribeServiceProvider(serviceId);
             busStore = null;
@@ -22,6 +23,7 @@ export default function createBusConnection(id, requestStateHandler=null, action
     }
 
     function sendMessageToBus(msg, eventKey=null) {
+        txt(`Send message with key ${eventKey} by ${serviceId}`);
         busStore.send(serviceId, msg, eventKey);
     }
 
@@ -44,6 +46,14 @@ export default function createBusConnection(id, requestStateHandler=null, action
         }
     }
 
+    function txt(msg) {
+        if (debugMode) {
+            console.debug(`BusStoreConnection:Debug: ${msg}`);
+        }
+    }
+
+
+    txt(`Connection established with serviceId ${serviceId}`);
     return {
         setBus: setBusConnection,
         clearBus: removeBusConnection,

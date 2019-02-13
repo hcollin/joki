@@ -44,6 +44,12 @@ function createBusStore(options = {}) {
         txt(`Service ${serviceId} unsubscribed .`);
     }
 
+
+    function listSubscribers() {
+        const subs = subscribers.map(sub => {return {id: sub.id};});
+        return subs;
+    }
+
     /**
      * Send a message to the bus
      * @param {*} msg
@@ -69,6 +75,14 @@ function createBusStore(options = {}) {
         });
     }
 
+    function sendMessageToSubscriber(subscriberId, sender, msg, eventKey) {
+        txt(`${sender} sends a message to service ${subscriberId} with event key ${eventKey}`);
+        const subscriber = subscribers.find(sub => sub.id === subscriberId);
+        if(typeof subscriber.action === "function" && subscriber.id !== sender) {
+            subscriber.action(sender, msg, eventKey);
+        }
+    }
+
     /**
      * Register a listener for messages
      */
@@ -89,6 +103,18 @@ function createBusStore(options = {}) {
             // txt(`\tListeners for eventKey ${eventKey} after removal ${listeners[eventKey].length}.`);
         };
         return listenerId;
+    }
+
+    function oneTimeListener(listenerFn, eventKey, id=null) {
+        if(eventKey === undefined) {
+            throw "When listening one time event an eventKey is mandatory";
+        }
+        txt(`Listening for event ${eventKey} once`);
+        const lid = listenMessages((sender, msg, eventKey) => {
+            const data = listenerFn(sender, msg, eventKey);
+            clearListener(lid);
+            return data;
+        }, eventKey, id);
     }
 
     function clearListener(listenerId) {
@@ -137,17 +163,25 @@ function createBusStore(options = {}) {
         return eventKeys;
     }
 
+    function confirmThatThisVariableIsABusStore() {
+        return true;
+    }
+
     return {
         subscribe: subscribeServiceProvider,
         unsubscribe: unSubscribeServiceProvider,
         send: sendMessage,
+        action: sendMessageToSubscriber,
         listen: listenMessages,
+        once: oneTimeListener,
         stop: clearListener,
         debug: setDebugMode,
+        services: listSubscribers,
         getService: getCurrentStateOfService,
         serviceUpdated: serviceHasUpdatedItsState,
         _getListeners: getListeners,
         getEventKeys: getRegisteredEventKeys,
+        _thisIsABusStore: confirmThatThisVariableIsABusStore
     };
 }
 
@@ -197,13 +231,16 @@ function createBusConnection(id, requestStateHandler=null, actionHandler=null) {
     const _stateHandler = requestStateHandler !== null ? requestStateHandler : () => null;
     const _actionHandler = actionHandler !== null ? actionHandler : () => null; 
 
-    function setBusConnection(bus) {
-        
+    let debugMode = false;
+
+    function setBusConnection(bus) {    
         busStore = bus;
+        txt(`Subscribe connection ${serviceId}`);
         return busStore.subscribe(serviceId, _stateHandler, _actionHandler);
     }
 
     function removeBusConnection(bus) {
+        txt(`Remove Subscribtion ${serviceId}`);
         if(busStore !== null) {
             busStore.unSubscribeServiceProvider(serviceId);
             busStore = null;
@@ -211,6 +248,7 @@ function createBusConnection(id, requestStateHandler=null, actionHandler=null) {
     }
 
     function sendMessageToBus(msg, eventKey=null) {
+        txt(`Send message with key ${eventKey} by ${serviceId}`);
         busStore.send(serviceId, msg, eventKey);
     }
 
@@ -226,8 +264,21 @@ function createBusConnection(id, requestStateHandler=null, actionHandler=null) {
     }
 
     function setDebugMode(setTo=null) {
+        if(setTo === null) {
+            debugMode = !debugMode;
+        } else {
+            debugMode = setTo;
+        }
     }
 
+    function txt(msg) {
+        if (debugMode) {
+            console.debug(`BusStoreConnection:Debug: ${msg}`);
+        }
+    }
+
+
+    txt(`Connection established with serviceId ${serviceId}`);
     return {
         setBus: setBusConnection,
         clearBus: removeBusConnection,
@@ -239,6 +290,228 @@ function createBusConnection(id, requestStateHandler=null, actionHandler=null) {
 
 }
 
+class ClassService {
+    
+    constructor(options) {
+
+        if (options.serviceId === undefined) {
+            console.error("The ClassService constructor requires an option with key unique serviceId.");
+            throw "The ClassService constructor requires an option with key unique serviceId.";
+        }
+
+        if (options.bus === undefined) {
+            console.error(
+                "The ClassService constructor requires an option with key bus providing the busStore it uses."
+            );
+            throw "The ClassService constructor requires an option with key bus providing the busStore it uses.";
+        }
+
+        const { serviceId, bus } = options;
+        this._serviceId = serviceId;
+        this.bus = createBusConnection(this._serviceId, this.getState.bind(this), this.busHandler.bind(this));
+        
+        this.connectToBus(bus);
+    }
+
+    connectToBus(busStore) {
+        if (busStore._thisIsABusStore() !== true) {
+            console.error("The bus provided is not a valid busStore");
+            throw("The bus provided is not a valid busStore");
+        }
+        this.bus.setBus(busStore);
+    }
+
+    getState() {
+        throw "This function must be overridden in the service class inheriting from the ClassService. This function must return the current state of the service.";
+    }
+
+    busHandler(sender, msg, eventKey) {
+        throw "This function must be overridden in the service class inheriting from the ClassService. This function handles incoming messages from the bus.";
+    }
+
+    sendToBus(msg, eventKey = null) {
+        if (this.bus !== null) {
+            this.bus.send(msg, eventKey);
+        }
+    }
+}
+
+function createReducerService(id, busStore, initState={}, reducerFunction=null) {
+
+    const serviceId = id;
+    let data = initState;
+    const bus = createBusConnection(serviceId, getState, handleBusMessage);
+
+    if(busStore._thisIsABusStore() !== true) {
+        throw(busStore);
+    }
+
+    bus.setBus(busStore);
+
+    if(typeof reducerFunction !== "function") {
+        throw("reducerFunction must be a function with two arguments: state and action");
+    }
+
+    const reducer = reducerFunction;
+
+    function getState() {
+        return {...data};
+    }
+
+    function handleBusMessage(sender, msg, eventKey) {
+        reducerRunner({type: eventKey, data: msg});
+    }
+
+    function reducerRunner(action) {
+        data = reducer({...data}, action);
+    }
+
+    return {
+        getState: getState,
+        action: reducerRunner,
+    }
+}
+
+function createFetchService(serviceId, busStore, options) {
+
+
+    const { url, format, ...rest } = Object.assign({}, { 
+        format: "json",
+        getEventKey: `${serviceId}-GET`,
+        postEventKey: `${serviceId}-GET`,
+        putEventKey: `${serviceId}-PUT`,
+        deleteEventKey: `${serviceId}-DELETE`,
+    }, options);
+    
+    
+    
+    const bus = createBusConnection(serviceId, getState, handleMessage);
+    bus.setBus(busStore);
+
+    const callHistory = [];
+
+
+    function getState() {
+        if(callHistory.length > 0) {
+            return callHistory[0];
+        }
+        return {};
+    }
+
+    function handleMessage(sender, msg, eventKey) {
+        const { params, urlExtension, data, responseEventKey } = msg;
+        
+        switch( eventKey ) {
+            case rest.getEventKey:
+                
+                sendFetch(params, urlExtension, data, "GET", responseEventKey);
+                break;
+            case rest.postEventKey:
+                sendFetch(params, urlExtension, data, "POST", responseEventKey);
+                break;
+            case rest.putEventKey:
+                sendFetch(params, urlExtension, data, "PUT", responseEventKey);
+                break;
+            case rest.deleteEventKey:
+                sendFetch(params, urlExtension, data, "DELETE", responseEventKey);
+                break;
+            default:
+                break;
+        }
+    }
+    
+    function _fetch(url, fetchParams={}, data=null) {
+        return new Promise((resolve, reject) => {
+
+            if(data!==null && fetchParams.method === "POST") {
+                fetchParams.body = data;
+            }
+
+            fetch(url, fetchParams).then(response => {
+                switch(format) {
+                    case "json":
+                    default:
+                        resolve(response.json());
+                        break;
+                }   
+            }).catch(err => {
+                reject(err);
+            });
+        });
+    }
+
+    function sendFetch(params, urlExtension ="", data=null, method="GET", predefinedFetchId=null) {
+        const fetchId = predefinedFetchId !== null ? predefinedFetchId : `${Date.now()}-${Math.round(Math.random()*10000)}`;
+        
+        _fetch(urlParamParser(url, urlExtension, params), {method: "GET", body: data}).then(results => {
+            receiveResults(results, fetchId);
+        });
+
+        return fetchId;
+    }
+
+    
+
+    function receiveResults(results, fetchId=null) {
+        bus.send(results, fetchId);
+    }
+    
+
+    function urlParamParser(url, urlExtension="", params) {
+        
+        return `${url}${urlExtension}`;
+    }
+
+    function fetchGET(options) {
+        const { params, urlExtension, data, triggerEvent } = Object.assign({}, {triggerEvent: true, urlExtension: ""}, options);
+        
+        return new Promise((resolve, reject) => {
+            _fetch(urlParamParser(url, urlExtension, params))
+                .then((results) => {
+                    if(triggerEvent) {
+                        setTimeout(() => { 
+                            receiveResults(results, 'FETCH-GET');
+                        }, 0);
+                    }
+
+                    resolve(results);
+                }).catch( err => {
+                    reject(err);
+                });
+        });
+
+    }
+
+    function fetchPOST(options) {
+        const { params, urlExtension, data, triggerEvent } = Object.assign({}, {triggerEvent: true, urlExtension: ""}, options);
+        return new Promise((resolve, reject) => {
+            _fetch(urlParamParser(url, urlExtension, params), {method: "POST"}, data)
+                .then((results) => {
+                    if(triggerEvent) {
+                        setTimeout(() => { 
+                            receiveResults(results, 'FETCH-POST');
+                        }, 0);
+                    }
+                    resolve(results);
+                }).catch( err => {
+                    reject(err);
+                });
+        });
+    }
+    
+
+
+    return {
+        rawFetch: sendFetch,
+        get: fetchGET,
+        post: fetchPOST
+
+    }
+}
+
 exports.createBusStore = createBusStore;
 exports.createBusConnection = createBusConnection;
-exports.createReducerService = createBusStoreReducerService;
+exports.BusStoreReducerService = createBusStoreReducerService;
+exports.ClassService = ClassService;
+exports.createReducerService = createReducerService;
+exports.createFetchService = createFetchService;

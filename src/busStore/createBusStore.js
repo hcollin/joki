@@ -40,6 +40,12 @@ export default function createBusStore(options = {}) {
         txt(`Service ${serviceId} unsubscribed .`);
     }
 
+
+    function listSubscribers() {
+        const subs = subscribers.map(sub => {return {id: sub.id};});
+        return subs;
+    }
+
     /**
      * Send a message to the bus
      * @param {*} msg
@@ -65,6 +71,14 @@ export default function createBusStore(options = {}) {
         })
     }
 
+    function sendMessageToSubscriber(subscriberId, sender, msg, eventKey) {
+        txt(`${sender} sends a message to service ${subscriberId} with event key ${eventKey}`);
+        const subscriber = subscribers.find(sub => sub.id === subscriberId);
+        if(typeof subscriber.action === "function" && subscriber.id !== sender) {
+            subscriber.action(sender, msg, eventKey);
+        }
+    }
+
     /**
      * Register a listener for messages
      */
@@ -85,6 +99,18 @@ export default function createBusStore(options = {}) {
             // txt(`\tListeners for eventKey ${eventKey} after removal ${listeners[eventKey].length}.`);
         };
         return listenerId;
+    }
+
+    function oneTimeListener(listenerFn, eventKey, id=null) {
+        if(eventKey === undefined) {
+            throw "When listening one time event an eventKey is mandatory";
+        }
+        txt(`Listening for event ${eventKey} once`);
+        const lid = listenMessages((sender, msg, eventKey) => {
+            const data = listenerFn(sender, msg, eventKey);
+            clearListener(lid);
+            return data;
+        }, eventKey, id);
     }
 
     function clearListener(listenerId) {
@@ -133,16 +159,24 @@ export default function createBusStore(options = {}) {
         return eventKeys;
     }
 
+    function confirmThatThisVariableIsABusStore() {
+        return true;
+    }
+
     return {
         subscribe: subscribeServiceProvider,
         unsubscribe: unSubscribeServiceProvider,
         send: sendMessage,
+        action: sendMessageToSubscriber,
         listen: listenMessages,
+        once: oneTimeListener,
         stop: clearListener,
         debug: setDebugMode,
+        services: listSubscribers,
         getService: getCurrentStateOfService,
         serviceUpdated: serviceHasUpdatedItsState,
         _getListeners: getListeners,
         getEventKeys: getRegisteredEventKeys,
+        _thisIsABusStore: confirmThatThisVariableIsABusStore
     };
 }
