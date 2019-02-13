@@ -2,7 +2,17 @@
 
 > *Joki means River in Finnish*
 
-Joki is event based store for React Hooks. The key idea here is to separate the actual data handling from the React allowing data handling in plain js and using asynchrous methods best suited for the project. 
+Joki is an alternative approach to making a global store (aka redux, mobx etc.) for React. The key idea here is to separate the actual data and logic from the view aka React. Joki can be connected to the React with React Hooks. Of course custom implementations to class based connections are also possible. 
+
+Main design goals for Joki were:
+
+* Use React Hooks and pure components on the view
+* Minimize boilerplate code on components
+* No need for separate solutions for async (like redux+saga||thunk etc.)
+* Bundling multiple complex backends and apis to clear simple Services for view to use
+* Target is closed environment BtoB web applications where only thing visible to open web is usually a login page, if even that.
+
+The main inspiration for Joki came from microservice architecture in the backend. The main use cae for Joki are closed BtoB web applications with custom backends. This clear separation of the view layer from the service layer in client side will allow more flexible approach to creating the connections between server and client.
 
 **NOTICE** This library is much in alpha stages and there WILL be breaking changes. A lot of them and not all of them will be updated into this manual until release.
 
@@ -20,6 +30,19 @@ Or if you prefer yarn
 ## How to use
 
 The Joki store is by design more complex than Redux style store so we need to do a bit more to get going.
+
+
+### API
+
+Joki exports the following api
+
+* `createJoki()` is used to create a Joki instance. This is the core of the library.
+* `connectJoki()` connects a service to Joki. This is needed when doing custom Services.
+* `ClassService` can be extended to create your own class based services
+* `createReducerService()` is used to create Redux inspired stores that listen to Joki events.
+* `useListenJokiEvent()` or `useEvent()` React hook to listen events in Joki.
+* `useListenJokiService()` or `useService()` React hook to retrieve current state of registered service in Joki. updated semi-automatically (needs to be triggered from the service).
+* `trigger()` send a message to the Joki from React Component.
 
 ### Joki Instance aka the Event Bus
 
@@ -127,6 +150,8 @@ createReducerService("MyService", Joki, initialState, reducer);
 
 Simplest way to send a message to Joki is to use the function `trigger`.
 
-    import {trigger} from 'joki';
-    trigger(jokiInstance, {options});
+```js
+import {trigger} from 'joki';
+trigger(jokiInstance, {options});
+```
 
