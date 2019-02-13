@@ -1,4 +1,4 @@
-import createBusConnection from "../serviceClass/createBusConnection";
+import connectJoki from "../joki/connectJoki";
 
 export default function createFetchService(serviceId, busStore, options) {
     const { url, format, headers, ...rest } = Object.assign(
@@ -16,8 +16,8 @@ export default function createFetchService(serviceId, busStore, options) {
 
     const defaultHeaders = headers;
 
-    const bus = createBusConnection(serviceId, getState, handleMessage);
-    bus.setBus(busStore);
+    const bus = connectJoki(serviceId, getState, handleMessage);
+    bus.setJoki(busStore);
 
     const callHistory = [];
 

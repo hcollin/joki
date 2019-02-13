@@ -1,16 +1,16 @@
-import createBusConnection from "../serviceClass/createBusConnection";
+import connectJoki from "../joki/connectJoki";
 
-export default function createReducerService(id, busStore, initState={}, reducerFunction=null) {
+export default function createReducerService(id, jokiInstance, initState={}, reducerFunction=null) {
 
     const serviceId = id;
     let data = initState;
-    const bus = createBusConnection(serviceId, getState, handleBusMessage);
+    const joki = connectJoki(serviceId, getState, handleMessage);
 
-    if(busStore._thisIsABusStore() !== true) {
-        throw("Provided busStore is not a valid busStore", busStore);
+    if(jokiInstance._isJoki() !== true) {
+        throw("Provided busStore is not a valid busStore", jokiInstance);
     }
 
-    bus.setBus(busStore);
+    joki.set(jokiInstance);
 
     if(typeof reducerFunction !== "function") {
         throw("reducerFunction must be a function with two arguments: state and action");
@@ -22,7 +22,7 @@ export default function createReducerService(id, busStore, initState={}, reducer
         return {...data};
     }
 
-    function handleBusMessage(sender, msg, eventKey) {
+    function handleMessage(sender, msg, eventKey) {
         reducerRunner({type: eventKey, data: msg});
     }
 

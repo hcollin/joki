@@ -1,10 +1,10 @@
 {
-    "name": "busstore",
-    "version": "0.0.1",
+    "name": "joki",
+    "version": "0.5.0",
     "license": "MIT",
-    "main": "dist/busstore.cjs.js",
-    "module": "dist/busstore.esm.js",
-    "browser": "dist/busstore.umd.js",
+    "main": "dist/joki.cjs.js",
+    "module": "dist/joki.esm.js",
+    "browser": "dist/joki.umd.js",
     "scripts": {
         "build": "rollup -c",
         "test": "jest --watch",

@@ -1,53 +1,59 @@
-export default function createBusStore(options = {}) {
+export default function createJoki(options = {}) {
     let subIdCounter = 0;
 
+    // The key generator for services can be overwritten with options
     const keyGenerator =
         options.keyGenerator !== undefined && typeof options.keyGenerator === "function"
             ? options.keyGenerator 
             : keyType => {
                   return keyType;
-              };
+    };
 
-    let subscribers = [];
+    
+    // All subscribed services are store here.
+    let services = [];
+
+    // Listeners are here
     const listeners = {
         all: [],
     };
 
+    // LIstener removing functions are stored here based on their id.
     const listenerRemovers = {};
 
     let debugMode = options.debugMode !== undefined ? options.debugMode : false;
 
     /**
-     * Services are the BusStore are data storages that usually contain a state and manage their internal state
-     * They send updates to the bus, when their data changes. They can also provide apis
+     * Services in the Joki are data storages that usually contain a state and manage their internal state
+     * They send updates to the Joki, when their data changes. They can also provide apis
      *
      * @param {string|null} serviceId
      * @param {}
      */
     function subscribeServiceProvider(serviceId = null, currentStateCallback = null, actionsCallback = null) {
         const id = serviceId !== null ? serviceId : keyGenerator(`subscriber-${subIdCounter++}`);
-        subscribers.push({
+        services.push({
             id: id,
             getState: currentStateCallback,
             action: actionsCallback,
         });
-        txt(`New service subscribed as ${serviceId}.`);
+        txt(`New service subscribed as ${serviceId} ${services.length}.`);
         return id;
     }
 
     function unSubscribeServiceProvider(subscriberId) {
-        subscribers = subscribers.filter(s => s.id !== subscriberId);
+        services = services.filter(s => s.id !== subscriberId);
         txt(`Service ${serviceId} unsubscribed .`);
     }
 
 
     function listSubscribers() {
-        const subs = subscribers.map(sub => {return {id: sub.id};});
+        const subs = services.map(sub => {return {id: sub.id};});
         return subs;
     }
 
     /**
-     * Send a message to the bus
+     * Send a message to the Joki
      * @param {*} msg
      * @param {*} options
      */
@@ -64,7 +70,7 @@ export default function createBusStore(options = {}) {
         listeners.all.forEach(listener => {
             listener.fn(sender, msg, eventKey);
         });
-        subscribers.forEach(sub => {
+        services.forEach(sub => {
             if(typeof sub.action === "function" && sub.id !== sender) {
                 sub.action(sender, msg, eventKey);
             }
@@ -73,7 +79,7 @@ export default function createBusStore(options = {}) {
 
     function sendMessageToSubscriber(subscriberId, sender, msg, eventKey) {
         txt(`${sender} sends a message to service ${subscriberId} with event key ${eventKey}`);
-        const subscriber = subscribers.find(sub => sub.id === subscriberId);
+        const subscriber = services.find(sub => sub.id === subscriberId);
         if(typeof subscriber.action === "function" && subscriber.id !== sender) {
             subscriber.action(sender, msg, eventKey);
         }
@@ -94,9 +100,7 @@ export default function createBusStore(options = {}) {
         });
         
         listenerRemovers[listenerId] = () => {
-            // txt(`\tListeners for eventKey ${eventKey} before removal ${listeners[eventKey].length}.`);
             listeners[eventKey] = listeners[eventKey].filter(l => l.id !== listenerId);
-            // txt(`\tListeners for eventKey ${eventKey} after removal ${listeners[eventKey].length}.`);
         };
         return listenerId;
     }
@@ -122,7 +126,7 @@ export default function createBusStore(options = {}) {
     }
 
     function getCurrentStateOfService(serviceId) {
-        const service = subscribers.find(sub => sub.id === serviceId);
+        const service = services.find(sub => sub.id === serviceId);
         txt(`Get current state for service ${serviceId}`);
         if (service === undefined) {
             console.error("Cannot get a state for unknown service", serviceId);
@@ -137,7 +141,7 @@ export default function createBusStore(options = {}) {
 
     function txt(msg) {
         if (debugMode) {
-            console.debug(`BusStore:Debug: ${msg}`);
+            console.debug(`Joki:Debug: ${msg}`);
         }
     }
 
@@ -159,7 +163,7 @@ export default function createBusStore(options = {}) {
         return eventKeys;
     }
 
-    function confirmThatThisVariableIsABusStore() {
+    function confirmThatThisAJokiInstance() {
         return true;
     }
 
@@ -177,6 +181,6 @@ export default function createBusStore(options = {}) {
         serviceUpdated: serviceHasUpdatedItsState,
         _getListeners: getListeners,
         getEventKeys: getRegisteredEventKeys,
-        _thisIsABusStore: confirmThatThisVariableIsABusStore
+        _isJoki: confirmThatThisAJokiInstance
     };
 }

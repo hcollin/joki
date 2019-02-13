@@ -1,24 +1,30 @@
-function createBusStore(options = {}) {
+function createJoki(options = {}) {
     let subIdCounter = 0;
 
+    // The key generator for services can be overwritten with options
     const keyGenerator =
         options.keyGenerator !== undefined && typeof options.keyGenerator === "function"
             ? options.keyGenerator 
             : keyType => {
                   return keyType;
-              };
+    };
 
-    let subscribers = [];
+    
+    // All subscribed services are store here.
+    let services = [];
+
+    // Listeners are here
     const listeners = {
         all: [],
     };
 
+    // LIstener removing functions are stored here based on their id.
     const listenerRemovers = {};
 
     let debugMode = options.debugMode !== undefined ? options.debugMode : false;
 
     /**
-     * Services are the BusStore are data storages that usually contain a state and manage their internal state
+     * Services in the Joki are data storages that usually contain a state and manage their internal state
      * They send updates to the bus, when their data changes. They can also provide apis
      *
      * @param {string|null} serviceId
@@ -26,23 +32,23 @@ function createBusStore(options = {}) {
      */
     function subscribeServiceProvider(serviceId = null, currentStateCallback = null, actionsCallback = null) {
         const id = serviceId !== null ? serviceId : keyGenerator(`subscriber-${subIdCounter++}`);
-        subscribers.push({
+        services.push({
             id: id,
             getState: currentStateCallback,
             action: actionsCallback,
         });
-        txt(`New service subscribed as ${serviceId}.`);
+        txt(`New service subscribed as ${serviceId} ${services.length}.`);
         return id;
     }
 
     function unSubscribeServiceProvider(subscriberId) {
-        subscribers = subscribers.filter(s => s.id !== subscriberId);
+        services = services.filter(s => s.id !== subscriberId);
         txt(`Service ${serviceId} unsubscribed .`);
     }
 
 
     function listSubscribers() {
-        const subs = subscribers.map(sub => {return {id: sub.id};});
+        const subs = services.map(sub => {return {id: sub.id};});
         return subs;
     }
 
@@ -64,7 +70,7 @@ function createBusStore(options = {}) {
         listeners.all.forEach(listener => {
             listener.fn(sender, msg, eventKey);
         });
-        subscribers.forEach(sub => {
+        services.forEach(sub => {
             if(typeof sub.action === "function" && sub.id !== sender) {
                 sub.action(sender, msg, eventKey);
             }
@@ -73,7 +79,7 @@ function createBusStore(options = {}) {
 
     function sendMessageToSubscriber(subscriberId, sender, msg, eventKey) {
         txt(`${sender} sends a message to service ${subscriberId} with event key ${eventKey}`);
-        const subscriber = subscribers.find(sub => sub.id === subscriberId);
+        const subscriber = services.find(sub => sub.id === subscriberId);
         if(typeof subscriber.action === "function" && subscriber.id !== sender) {
             subscriber.action(sender, msg, eventKey);
         }
@@ -94,9 +100,7 @@ function createBusStore(options = {}) {
         });
         
         listenerRemovers[listenerId] = () => {
-            // txt(`\tListeners for eventKey ${eventKey} before removal ${listeners[eventKey].length}.`);
             listeners[eventKey] = listeners[eventKey].filter(l => l.id !== listenerId);
-            // txt(`\tListeners for eventKey ${eventKey} after removal ${listeners[eventKey].length}.`);
         };
         return listenerId;
     }
@@ -122,7 +126,7 @@ function createBusStore(options = {}) {
     }
 
     function getCurrentStateOfService(serviceId) {
-        const service = subscribers.find(sub => sub.id === serviceId);
+        const service = services.find(sub => sub.id === serviceId);
         txt(`Get current state for service ${serviceId}`);
         if (service === undefined) {
             console.error("Cannot get a state for unknown service", serviceId);
@@ -177,86 +181,47 @@ function createBusStore(options = {}) {
         serviceUpdated: serviceHasUpdatedItsState,
         _getListeners: getListeners,
         getEventKeys: getRegisteredEventKeys,
-        _thisIsABusStore: confirmThatThisVariableIsABusStore
+        _isJoki: confirmThatThisVariableIsABusStore
     };
 }
 
-function createBusStoreReducerService(id, initialData={}, reducer) {
+function connectJoki(id, requestStateHandler=null, actionHandler=null) {
 
-    let state = initialData;
-    let connectedBus = null;
-    const serviceId = id;
-
-    function getState() {
-        return {...state};
-    }
-
-    function updateState(action) {
-        const draft = {...state};
-        state = reducer(draft, action);
-    }
-
-    function connectReducerStoreToBus(bus) {
-        connectedBus = bus;
-        connectedBus.subscribe(serviceId);
-    }
-    
-    function disconnectFromCurrentBus() {
-        if(connectedBus !==null) {
-            connectedBus = null;
-        }
-    }
-
-    return {
-        serviceId : serviceId,
-        getState: getState,
-        dispatch: updateState,
-        connectToBus: connectReducerStoreToBus,
-        disconnectFromBus: disconnectFromCurrentBus
-
-
-    }
-
-
-}
-
-function createBusConnection(id, requestStateHandler=null, actionHandler=null) {
-
-    let busStore = null;
+    let jokiInstance = null;
     const serviceId = id;
     const _stateHandler = requestStateHandler !== null ? requestStateHandler : () => null;
     const _actionHandler = actionHandler !== null ? actionHandler : () => null; 
 
     let debugMode = false;
 
-    function setBusConnection(bus) {    
-        busStore = bus;
+    function setJokiInstance(joki) {    
+        jokiInstance = joki;
         txt(`Subscribe connection ${serviceId}`);
-        return busStore.subscribe(serviceId, _stateHandler, _actionHandler);
+        return jokiInstance.subscribe(serviceId, _stateHandler, _actionHandler);
     }
 
     function removeBusConnection(bus) {
         txt(`Remove Subscribtion ${serviceId}`);
-        if(busStore !== null) {
-            busStore.unSubscribeServiceProvider(serviceId);
-            busStore = null;
+        if(jokiInstance !== null) {
+            jokiInstance.unSubscribeServiceProvider(serviceId);
+            jokiInstance = null;
         }
     }
 
     function sendMessageToBus(msg, eventKey=null) {
         txt(`Send message with key ${eventKey} by ${serviceId}`);
-        busStore.send(serviceId, msg, eventKey);
+        jokiInstance.send(serviceId, msg, eventKey);
     }
 
     function addListenerToBusEvent(handlerFn, eventKey=null) {
-        const listenerId = busStore.listen(handlerFn, eventKey);
+        const listenerId = jokiInstance.listen(handlerFn, eventKey);
         return () => {
-            busStore.stop(listenerId);
+            jokiInstance.stop(listenerId);
         }
     }
 
     function broadcastServiceStateUpdate() {
-        busStore.serviceUpdated(serviceId);
+        jokiInstance.serviceUpdated(serviceId);
     }
 
     function setDebugMode(setTo=null) {
@@ -276,8 +241,8 @@ function createBusConnection(id, requestStateHandler=null, actionHandler=null) {
 
     txt(`Connection established with serviceId ${serviceId}`);
     return {
-        setBus: setBusConnection,
-        clearBus: removeBusConnection,
+        set: setJokiInstance,
+        clear: removeBusConnection,
         send: sendMessageToBus,
         listen: addListenerToBusEvent,
         debug: setDebugMode,
@@ -295,54 +260,58 @@ class ClassService {
             throw "The ClassService constructor requires an option with key unique serviceId.";
         }
 
-        if (options.bus === undefined) {
-            console.error(
-                "The ClassService constructor requires an option with key bus providing the busStore it uses."
-            );
-            throw "The ClassService constructor requires an option with key bus providing the busStore it uses.";
+        // if (options.joki === undefined) {
+        //     console.error(
+        //         "The ClassService constructor requires an option with key joki providing the Joki instance it uses."
+        //     );
+        //     throw "The ClassService constructor requires an option with key joki providing the Joki instance it uses.";
+        // }
+
+        const { serviceId, joki } = options;
+        this._serviceId = serviceId;
+        this.joki = connectJoki(this._serviceId, this.getState.bind(this), this.messageHandler.bind(this));
+        
+        if(options.joki !== undefined ) {
+            this.connectToJoki(options.joki);
         }
 
-        const { serviceId, bus } = options;
-        this._serviceId = serviceId;
-        this.bus = createBusConnection(this._serviceId, this.getState.bind(this), this.busHandler.bind(this));
-        
-        this.connectToBus(bus);
     }
 
-    connectToBus(busStore) {
-        if (busStore._thisIsABusStore() !== true) {
-            console.error("The bus provided is not a valid busStore");
-            throw("The bus provided is not a valid busStore");
+    connectToJoki(jokiInstance) {
+        if (jokiInstance._isJoki() !== true) {
+            console.error("The Joki provided is not a valid Joki Instance");
+            throw("The Joki provided is not a valid Joki instance");
         }
-        this.bus.setBus(busStore);
+        this.joki.set(jokiInstance);
     }
 
     getState() {
         throw "This function must be overridden in the service class inheriting from the ClassService. This function must return the current state of the service.";
     }
 
-    busHandler(sender, msg, eventKey) {
-        throw "This function must be overridden in the service class inheriting from the ClassService. This function handles incoming messages from the bus.";
+    messageHandler(sender, msg, eventKey) {
+        throw "This function must be overridden in the service class inheriting from the ClassService. This function handles incoming messages from the Joki.";
     }
 
-    sendToBus(msg, eventKey = null) {
-        if (this.bus !== null) {
-            this.bus.send(msg, eventKey);
+    sendToJoki(msg, eventKey = null) {
+        if (this.joki !== null) {
+            this.joki.send(msg, eventKey);
         }
+        
     }
 }
 
-function createReducerService(id, busStore, initState={}, reducerFunction=null) {
+function createReducerService(id, jokiInstance, initState={}, reducerFunction=null) {
 
     const serviceId = id;
     let data = initState;
-    const bus = createBusConnection(serviceId, getState, handleBusMessage);
+    const joki = connectJoki(serviceId, getState, handleMessage);
 
-    if(busStore._thisIsABusStore() !== true) {
-        throw(busStore);
+    if(jokiInstance._isJoki() !== true) {
+        throw(jokiInstance);
     }
 
-    bus.setBus(busStore);
+    joki.set(jokiInstance);
 
     if(typeof reducerFunction !== "function") {
         throw("reducerFunction must be a function with two arguments: state and action");
@@ -354,7 +323,7 @@ function createReducerService(id, busStore, initState={}, reducerFunction=null) 
         return {...data};
     }
 
-    function handleBusMessage(sender, msg, eventKey) {
+    function handleMessage(sender, msg, eventKey) {
         reducerRunner({type: eventKey, data: msg});
     }
 
@@ -382,8 +351,8 @@ function createFetchService(serviceId, busStore, options) {
         options
     );
 
-    const bus = createBusConnection(serviceId, getState, handleMessage);
-    bus.setBus(busStore);
+    const bus = connectJoki(serviceId, getState, handleMessage);
+    bus.setJoki(busStore);
 
     const callHistory = [];
 
@@ -434,6 +403,10 @@ function createFetchService(serviceId, busStore, options) {
         });
     }
 
+    function _addToCallHistory(results) {
+        callHistory.unshift(results);
+    }
+
     function sendFetch(options, method = "GET") {
         const { params, urlExtension, body, header, responseEventKey } = Object.assign(
             {},
@@ -459,7 +432,9 @@ function createFetchService(serviceId, busStore, options) {
     }
 
     function receiveResults(results, fetchId = null) {
+        _addToCallHistory(results);
         bus.send(results, fetchId);
+        
     }
 
     function urlParamParser(url, urlExtension = "", params) {
@@ -532,4 +507,4 @@ function createFetchService(serviceId, busStore, options) {
     };
 }
 
-export { createBusStore, createBusConnection, createBusStoreReducerService as BusStoreReducerService, ClassService, createReducerService, createFetchService };
+export { createJoki, connectJoki, ClassService, createReducerService, createFetchService };

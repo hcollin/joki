@@ -1,4 +1,4 @@
-import createBusConnection from "../serviceClass/createBusConnection";
+import connectJoki from "../joki/connectJoki";
 
 export default class ClassService {
     
@@ -9,39 +9,43 @@ export default class ClassService {
             throw "The ClassService constructor requires an option with key unique serviceId.";
         }
 
-        if (options.bus === undefined) {
-            console.error(
-                "The ClassService constructor requires an option with key bus providing the busStore it uses."
-            );
-            throw "The ClassService constructor requires an option with key bus providing the busStore it uses.";
+        // if (options.joki === undefined) {
+        //     console.error(
+        //         "The ClassService constructor requires an option with key joki providing the Joki instance it uses."
+        //     );
+        //     throw "The ClassService constructor requires an option with key joki providing the Joki instance it uses.";
+        // }
+
+        const { serviceId, joki } = options;
+        this._serviceId = serviceId;
+        this.joki = connectJoki(this._serviceId, this.getState.bind(this), this.messageHandler.bind(this));
+        
+        if(options.joki !== undefined ) {
+            this.connectToJoki(options.joki);
         }
 
-        const { serviceId, bus } = options;
-        this._serviceId = serviceId;
-        this.bus = createBusConnection(this._serviceId, this.getState.bind(this), this.busHandler.bind(this));
-        
-        this.connectToBus(bus);
     }
 
-    connectToBus(busStore) {
-        if (busStore._thisIsABusStore() !== true) {
-            console.error("The bus provided is not a valid busStore");
-            throw("The bus provided is not a valid busStore");
+    connectToJoki(jokiInstance) {
+        if (jokiInstance._isJoki() !== true) {
+            console.error("The Joki provided is not a valid Joki Instance");
+            throw("The Joki provided is not a valid Joki instance");
         }
-        this.bus.setBus(busStore);
+        this.joki.set(jokiInstance);
     }
 
     getState() {
         throw "This function must be overridden in the service class inheriting from the ClassService. This function must return the current state of the service.";
     }
 
-    busHandler(sender, msg, eventKey) {
-        throw "This function must be overridden in the service class inheriting from the ClassService. This function handles incoming messages from the bus.";
+    messageHandler(sender, msg, eventKey) {
+        throw "This function must be overridden in the service class inheriting from the ClassService. This function handles incoming messages from the Joki.";
     }
 
-    sendToBus(msg, eventKey = null) {
-        if (this.bus !== null) {
-            this.bus.send(msg, eventKey);
+    sendToJoki(msg, eventKey = null) {
+        if (this.joki !== null) {
+            this.joki.send(msg, eventKey);
         }
+        
     }
 }
