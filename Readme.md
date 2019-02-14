@@ -187,3 +187,26 @@ trigger(jokiInstance, {
 });
 ```
 
+## Plans for the future
+
+There a many ideas how to improve the Joki and quite a few of them will be breaking changes. 
+
+### New event object
+
+One of the main considerations at the moment is the syntax of the events. currently they always work with three paramters: sender, eventKey and message and even that is in a funny order. It might be better to just have an event object with a structure more like this:
+
+    {
+        from: String,
+        event: StringOrArrayOfStrings,
+        to: StringOrArrayOfStrings,
+        response: StringOrFunction,
+        body: Any
+    }
+
+Only the *event* would be a mandatory parameter and maybe using trigger with just a string as an object would automatically wrap that string to an event object.
+
+* **from** is either an id of the sender or some other form of identification, like component name. It is not mandatory and it is mainly used by services making sure not to start handling their own events.
+* **event** is the only mandatory parameter and works very similarly to Redux action.type. Components and services can also separately start listening for these events from Joki.
+* **to** is an optional parameter that will target the event to a specific service by it's serviceId. This is an optimization parameter, as it will limit the number of messageHandlers called per event.
+* **response** is an optional new parameter. Response could either be an event string or custom function. An event string would trigger an event with this string as event after the service would have completed it. A callback function would be executed after the service is done, but no new event should be generated (except maybe the normal update event for the service).
+* **body** is the main content for the event, the data and that can be pretty much anything.
