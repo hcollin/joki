@@ -14,7 +14,7 @@ Main design goals for Joki were:
 
 The main inspiration for Joki came from microservice architecture in the backend. The main use cae for Joki are closed BtoB web applications with custom backends. This clear separation of the view layer from the service layer in client side will allow more flexible approach to creating the connections between server and client.
 
-**NOTICE** This library is much in alpha stages and there WILL be breaking changes. A lot of them and not all of them will be updated into this manual until release.
+**NOTICE** This library is very much in alpha stages and there WILL be breaking changes. A lot of them and not all of them will be updated into this manual until release.
 
 ## Installation
 

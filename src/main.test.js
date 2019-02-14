@@ -4,6 +4,8 @@ const {
     ClassService,
     createReducerService,
     createFetchService,
+    JokiService,
+    MapContainer
 } = require("../dist/joki.cjs.js");
 
 describe("Testing createJoki", () => {
@@ -376,3 +378,11 @@ describe("fetchService", () => {
         );
     });
 });
+
+describe('Joki Service tests', () => {
+
+    it('Map Container tests', () => {
+
+
+    })
+})
