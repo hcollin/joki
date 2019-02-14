@@ -145,6 +145,31 @@ const reducer = (state, action) => {
 createReducerService("MyService", Joki, initialState, reducer);
 ```
 
+#### Custom Services
+
+```js
+import {connectJoki, createJoki} from 'joki';
+
+const jokiInstance = createJoki();
+const joki = connectJoki("ServiceId", getState, messageHandler);
+joki.set(jokiInstance);
+
+const state = {};
+
+function getState() {
+    return state;
+}
+
+function messageHandler(sender, message, eventKey) {
+    
+    // Do stuff with incoming Joki events
+
+    joki.updated(); // Send message to Joki that the contents of this service has updated.
+}
+
+```
+The custome service above would be a valid service, and the only way to actually interract with it would be via Joki  Events. We could  write some action functions that would provide valid eventKeys and message formats and export those.
+
 
 ### Sending messages
 
@@ -152,6 +177,13 @@ Simplest way to send a message to Joki is to use the function `trigger`.
 
 ```js
 import {trigger} from 'joki';
-trigger(jokiInstance, {options});
+trigger(jokiInstance, {
+    sender: "component", 
+    eventKey: "DoSomething",
+    data: {
+        // What is the message
+    },
+    serviceId: "forYourHandlersOnly"    // optional
+});
 ```
 
