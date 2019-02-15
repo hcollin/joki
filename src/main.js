@@ -3,7 +3,7 @@ import connectJoki from "./joki/connectJoki";
 
 import ClassService from "./services/ClassService";
 import createReducerService from "./services/reducerService";
-import createFetchService from "./services/fetchService";
+// import createFetchService from "./services/fetchService";
 
 import { useListenJokiEvent, useListenJokiService, trigger } from "./react/hooks";
 
@@ -12,7 +12,7 @@ export {
     connectJoki,
     ClassService,
     createReducerService,
-    createFetchService,
+    // createFetchService,
     useListenJokiEvent,
     useListenJokiService,
     useListenJokiEvent as useEvent,

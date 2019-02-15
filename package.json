@@ -2,7 +2,7 @@
     "name": "joki",
     "author": "Henrik Collin <hcollin78@gmail.com>",
     "description": "Event Bus based state management designed to be used with React Hooks",
-    "version": "0.5.2",
+    "version": "0.5.3",
     "license": "MIT",
     "main": "dist/joki.cjs.js",
     "module": "dist/joki.esm.js",
@@ -13,12 +13,16 @@
         "test-ci": "jest"
     },
     "dependencies": {
-        "rollup-plugin-commonjs": "^9.2.0",
-        "rollup-plugin-node-resolve": "^4.0.0"
+        
     },
     "devDependencies": {
         "jest": "^24.1.0",
         "jest-fetch-mock": "^2.1.0",
+        "react": "^16.8.1",
+        "rollup-plugin-commonjs": "^9.2.0",
+        "rollup-plugin-node-resolve": "^4.0.0"
+    },
+    "peerDependencies": {
         "react": "^16.8.1"
     },
     "files": [
