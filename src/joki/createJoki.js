@@ -54,34 +54,34 @@ export default function createJoki(options = {}) {
 
     /**
      * Send a message to the Joki
-     * @param {*} msg
-     * @param {*} options
      */
-    function sendMessage(sender = null, msg, eventKey = null) {
-        txt(`${sender} sends a message with eventKey ${eventKey}.`);
+    function sendMessage(event) {
+        const {from, to, body, eventKey } = event;
+        txt(`${from} sends a message with eventKey ${event.eventKey}.`);
         if (eventKey !== null) {
             if (listeners[eventKey] === undefined) {
                 listeners[eventKey] = [];
             }
             listeners[eventKey].forEach(listener => {
-                listener.fn(sender, msg, eventKey);
+                listener.fn(event);
             });
         }
         listeners.all.forEach(listener => {
-            listener.fn(sender, msg, eventKey);
+            listener.fn(event);
         });
         services.forEach(sub => {
-            if(typeof sub.action === "function" && sub.id !== sender) {
-                sub.action(sender, msg, eventKey);
+            if(typeof sub.action === "function" && sub.id !== event.from) {
+                sub.action(event);
             }
         })
     }
 
-    function sendMessageToSubscriber(subscriberId, sender, msg, eventKey) {
-        txt(`${sender} sends a message to service ${subscriberId} with event key ${eventKey}`);
-        const subscriber = services.find(sub => sub.id === subscriberId);
-        if(typeof subscriber.action === "function" && subscriber.id !== sender) {
-            subscriber.action(sender, msg, eventKey);
+    function sendMessageToSubscriber(event) {
+        const {from, to, body, eventKey } = event;
+        txt(`${from} sends a message to service ${to} with event key ${eventKey}`);
+        const subscriber = services.find(sub => sub.id === to);
+        if(typeof subscriber.action === "function" && subscriber.id !== from) {
+            subscriber.action(event);
         }
     }
 
@@ -136,7 +136,7 @@ export default function createJoki(options = {}) {
     }
 
     function serviceHasUpdatedItsState(serviceId) {
-        sendMessage(serviceId, "UPDATE", serviceId);
+        sendMessage({from: serviceId, eventKey: "_SERVICEUPDATED_"});
     }
 
     function txt(msg) {

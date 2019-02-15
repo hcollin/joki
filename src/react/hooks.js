@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 
 export function useListenJokiEvent(jokiInstance, options = {}) {
     const [eventData, updateData] = useState({ data: null, sender: null, eventKey: null });
@@ -29,8 +29,8 @@ export function useListenJokiService(jokiInstance, serviceId) {
 
     useEffect(() => {
         if (data.listenerId === null) {
-            const listenerId = jokiInstance.listen((sender, msg, eventKey) => {
-                if (msg === "UPDATE" && eventKey === serviceId) {
+            const listenerId = jokiInstance.listen((event) => {
+                if (event.eventKey === "_SERVICEUPDATED_" && event.from === serviceId) {
                     const newData = { data: jokiInstance.getService(serviceId), listenerId: data.listenerId };
                     updateServiceData(newData);
                 }
@@ -49,21 +49,20 @@ export function useListenJokiService(jokiInstance, serviceId) {
     return [data.data];
 }
 
-export function trigger(jokiInstance, options = {}) {
-    const sender = options.sender !== undefined ? options.sender : "unknown-react-component";
-    const eventKey = options.eventKey !== undefined ? options.eventKey : "all";
-    const msg = options.data !== undefined ? options.data : options.msg !== undefined ? options.msg : {};
-    const serviceId = options.serviceId !== undefined ? options.serviceId : null;
-    if (serviceId !== null) {
-        return sendToService(jokiInstance, serviceId, sender, msg, eventKey);
+export function trigger(jokiInstance, event) {
+    
+    event.from = event.from !== undefined ? event.from : "react-trigger";
+    
+    // Event to be sent must have either 'to' or 'eventKey' defined
+    if(event.to === undefined && event.eventKey === undefined) {
+        throw "Event must defined either a target for the event with 'to' or an 'eventKey'";
     }
-    return sendToBus(jokiInstance, sender, msg, eventKey);
+    
+    // event.eventKey = event.eventKey !== undedefined ?  event.eventKey : "all";
+    // const eventKey = event.eventKey !== undefined ? event.eventKey : "all";
+    
+    // const msg = event.data !== undefined ? event.data : event.msg !== undefined ? event.msg : {};
+    // const serviceId = event.serviceId !== undefined ? event.serviceId : null;
+    return jokiInstance.send(event);
 }
 
-function sendToBus(jokiInstance, sender, msg, eventKey) {
-    jokiInstance.send(sender, msg, eventKey);
-}
-
-function sendToService(jokiInstance, serviceId, sender, msg, eventKey) {
-    jokiInstance.action(serviceId, sender, msg, eventKey);
-}

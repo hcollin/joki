@@ -22,8 +22,8 @@ export default function createReducerService(id, jokiInstance, initState={}, red
         return {...data};
     }
 
-    function handleMessage(sender, msg, eventKey) {
-        reducerRunner({type: eventKey, data: msg});
+    function handleMessage(event) {
+        reducerRunner({type: event.eventKey, data: event.body});
     }
 
     function reducerRunner(action) {

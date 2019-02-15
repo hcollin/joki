@@ -1,5 +1,5 @@
 
-import { connectJoki } from '../joki/connectJoki';
+import connectJoki from '../joki/connectJoki';
 
 import MapContainer from './containers/MapContainer';
 

@@ -22,9 +22,10 @@ export default function connectJoki(id, requestStateHandler=null, actionHandler=
         }
     }
 
-    function sendMessageToJoki(msg, eventKey=null) {
-        txt(`Send message with key ${eventKey} by ${serviceId}`);
-        jokiInstance.send(serviceId, msg, eventKey);
+    function sendMessageToJoki(event) {
+        txt(`Send message with key ${event.eventKey} by ${serviceId}`);
+        event.from = serviceId;
+        jokiInstance.send(event);
     }
 
     function addJokiEventListener(handlerFn, eventKey=null) {
