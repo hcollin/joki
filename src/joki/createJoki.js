@@ -9,14 +9,18 @@ export default function createJoki(initialOptions = {}) {
     function ask(event) {
         _txt(`Ask from ${event.from} about ${event.key}`);
 
-        return new Promise((resolve, reject) => {
-            
-            
-            
-            const replies = trigger(event);
-            
+        if(event.syncAsk === true) {
+            return trigger(event);
+        }
 
-            resolve(replies);
+        return new Promise((resolve, reject) => {
+            try {
+                const replies = trigger(event);
+                resolve(replies);
+            } catch(err) {
+                reject(err);
+            }
+            
         });
     }
 

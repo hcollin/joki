@@ -177,6 +177,21 @@ describe("createJoki 0.6", () => {
             })
         ).resolves.toEqual({ alpha: ["reply", "reply"] });
     });
+
+
+    it('Make a synchronous ask', () => {
+        const joki = createJoki();
+
+        joki.on({ key: "alpha", fn: event => (event.body !== undefined ? event.body : "No body found") });
+
+        expect(joki.ask({
+            key: "alpha",
+            syncAsk: true
+        })).toEqual({alpha: ['No body found']});
+
+        
+
+    })
 });
 
 xdescribe("Testing createJoki", () => {
