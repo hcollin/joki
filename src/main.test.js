@@ -1,12 +1,185 @@
 const {
     createJoki,
-    connectJoki,
-    ClassService,
-    createReducerService,
-    createFetchService,
+    // connectJoki,
+    // ClassService,
+    // createReducerService,
+    // createFetchService,
 } = require("../dist/joki.cjs.js");
 
-describe("Testing createJoki", () => {
+describe("createJoki 0.6", () => {
+    it("Test that createJoki funtion has valid api", () => {
+        const joki = createJoki();
+        expect(typeof joki.on).toBe("function");
+        expect(typeof joki.trigger).toBe("function");
+        expect(typeof joki.ask).toBe("function");
+        expect(typeof joki.addService).toBe("function");
+        expect(typeof joki.removeService).toBe("function");
+        expect(typeof joki.listServices).toBe("function");
+        expect(typeof joki.options).toBe("function");
+    });
+
+    it("createJoki options Api", () => {
+        const joki = createJoki({
+            foo: "bar",
+        });
+
+        joki.options("alpha", "omega");
+        expect(joki.options("foo")).toBe("bar");
+        expect(joki.options("alpha")).toBe("omega");
+        expect(joki.options()).toEqual({ foo: "bar", alpha: "omega" });
+    });
+
+    it("Create an event listener and trigger it", done => {
+        const joki = createJoki();
+
+        const unsubscribe = joki.on({
+            key: "test",
+            fn: event => {
+                expect(event.body).toEqual({ foo: "bar" });
+                done();
+            },
+        });
+
+        expect(typeof unsubscribe).toBe("function");
+
+        joki.trigger({
+            key: "test",
+            body: {
+                foo: "bar",
+            },
+        });
+    });
+
+    it("Create and remove a listener", () => {
+        const joki = createJoki();
+
+        const unsubscribe = joki.on({
+            key: "test",
+            fn: event => true,
+        });
+
+        expect(joki.listeners()).toEqual([{ key: "test", size: 1 }]);
+
+        unsubscribe();
+
+        expect(joki.listeners().length).toBe(0);
+    });
+
+    it("Register same event to multiple keys, trigger one event and remove listener", () => {
+        const joki = createJoki();
+
+        const unsubscribe = joki.on({
+            key: ["alpha", "beta", "gamma"],
+            fn: event => {
+                if (event.key === "beta") {
+                    expect(event.body).toBe("foo");
+                }
+
+                if (event.key === "alpha") {
+                    expect(event.body).toBe("bar");
+                }
+            },
+        });
+
+        expect(joki.listeners().length).toBe(3);
+
+        joki.trigger({
+            key: "beta",
+            body: "foo",
+        });
+
+        joki.trigger({
+            key: "alpha",
+            body: "bar",
+        });
+
+        unsubscribe();
+
+        expect(joki.listeners().length).toBe(0);
+
+        expect.assertions(4);
+    });
+
+    it("Create a service and trigger it", done => {
+        const joki = createJoki();
+
+        const serv = event => {
+            expect(event.key).toBe("test-event");
+            expect(event.to).toBe("testService");
+            done();
+        };
+
+        joki.addService({
+            id: "testService",
+            fn: serv,
+        });
+
+        joki.trigger({
+            to: "testService",
+            key: "test-event",
+        });
+    });
+
+    it("Ask from services", () => {
+        const joki = createJoki();
+
+        const serv = event => {
+            if (event.key === "state" && event.to === "testService") {
+                return { foo: "bar", private: true };
+            }
+
+            if (event.key === "state") {
+                return { foo: "bar", private: false };
+            }
+        };
+
+        joki.addService({ id: "testService", fn: serv });
+
+        joki.addService({ id: "beta", fn: serv });
+
+        expect(
+            joki.ask({
+                to: "testService",
+                key: "state",
+            })
+        ).resolves.toEqual({ testService: { foo: "bar", private: true } });
+
+        expect(
+            joki.ask({
+                to: true,
+                key: "state",
+            })
+        ).resolves.toEqual({
+            testService: { foo: "bar", private: false },
+            beta: { foo: "bar", private: false },
+        });
+    });
+
+    it("Ask from listeners", () => {
+        const joki = createJoki();
+
+        joki.on({ key: "alpha", fn: event => (event.body !== undefined ? event.body : "No body found") });
+
+        joki.on({ key: "beta", fn: event => (event.body !== undefined ? event.body : "No body found") });
+
+        expect(
+            joki.ask({
+                key: "alpha",
+            })
+        ).resolves.toEqual({ alpha: ["No body found"] });
+
+        joki.on({ key: "alpha", fn: event => (event.body !== undefined ? event.body : "No body found") });
+
+        expect(
+            joki.ask({
+                key: "alpha",
+                body: "reply",
+            })
+        ).resolves.toEqual({ alpha: ["reply", "reply"] });
+    });
+});
+
+xdescribe("Testing createJoki", () => {
     class Service {
         constructor(serviceId) {
             this.bus = connectJoki(serviceId, this.getState.bind(this), this.incoming.bind(this));
@@ -79,8 +252,7 @@ describe("Testing createJoki", () => {
         expect(Joki._getListeners("test-again").length).toBe(0);
     });
 
-
-    it('Test one time listener', (done) => {
+    it("Test one time listener", done => {
         const Joki = createJoki();
 
         Joki.once((s, m, e) => {
@@ -165,8 +337,7 @@ describe("Testing createJoki", () => {
     });
 });
 
-describe("Testing class service", () => {
-
+xdescribe("Testing class service", () => {
     class MyService extends ClassService {
         constructor(joki) {
             super({
@@ -206,7 +377,6 @@ describe("Testing class service", () => {
         const Joki = createJoki();
         const serv = new MyService(Joki);
 
-        
         expect(serv.getState()).toBe(0);
         serv.messageHandler(null, 0, "plus");
         expect(serv.getState()).toBe(1);
@@ -231,7 +401,7 @@ describe("Testing class service", () => {
     });
 });
 
-describe("reducerService testing", () => {
+xdescribe("reducerService testing", () => {
     it("testing the reducerService without bus", () => {
         const Joki = createJoki();
         const rstore = createReducerService("reducerStore", Joki, { counter: 0 }, (state, action) => {
@@ -284,11 +454,10 @@ describe("reducerService testing", () => {
     });
 });
 
-describe("fetchService", () => {
+xdescribe("fetchService", () => {
     beforeEach(() => {
         fetch.resetMocks();
     });
-
 
     it("Fetch Get promise", done => {
         fetch.mockResponseOnce(JSON.stringify({ test: true }));
@@ -309,7 +478,7 @@ describe("fetchService", () => {
                 expect(fetch.mock.calls[0][0]).toBe("http://localhost/test/url/myext");
                 expect(fetch.mock.calls[0][1].method).toBe("GET");
                 expect(fetch.mock.calls[0][1].header).toBe(undefined);
-                
+
                 expect(results.test).toBe(true);
             })
             .catch(err => {
@@ -333,11 +502,11 @@ describe("fetchService", () => {
             expect(msg).toEqual({ test: true });
         }, "FETCH-POST");
 
-        serv.post({ body: { myData: true }, triggerEvent: false, header: { auth: true} }).then(res => {
+        serv.post({ body: { myData: true }, triggerEvent: false, header: { auth: true } }).then(res => {
             expect(fetch.mock.calls[0][1].method).toBe("POST");
             expect(fetch.mock.calls[0][1].body).toEqual({ myData: true });
             expect(fetch.mock.calls[0][1].header).toEqual({ auth: true });
-            expect(res).toEqual({test: true});
+            expect(res).toEqual({ test: true });
             done();
         });
 
@@ -360,8 +529,8 @@ describe("fetchService", () => {
             expect(msg.test).toBe(true);
             expect(sender).toBe("testFetchService");
             expect(eventKey).toBe(responseId);
-            expect(fetch.mock.calls[0][1].body).toEqual({bodydata: true});
-            expect(fetch.mock.calls[0][1].header).toEqual({auth: true});
+            expect(fetch.mock.calls[0][1].body).toEqual({ bodydata: true });
+            expect(fetch.mock.calls[0][1].header).toEqual({ auth: true });
             done();
         }, responseId);
 
@@ -370,7 +539,7 @@ describe("fetchService", () => {
             {
                 responseEventKey: responseId,
                 body: { bodydata: true },
-                header: { auth: true }
+                header: { auth: true },
             },
             "BUS-FETCH-GET"
         );
