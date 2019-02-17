@@ -72,9 +72,10 @@ function createJoki(initialOptions = {}) {
     }
 
     function trigger(event) {
-        _txt(`Trigger an event with key ${event.key} to ${event.to === true ? "all services" : event.to}`);
+        _txt(`Trigger an event.\n\tfrom: ${event.from}\n\tto: ${event.to}\n\tkey: ${event.key}\n\tbroadcast: ${event.broadcast === true ? "yes": "no"}`);
         // Only trigger a service
         if (event.to !== undefined) {
+
             const serviceIds = typeof event.to === "string" ? [event.to] : Array.isArray(event.to) ? event.to : event.to === true ? Array.from(_services.keys()) :null;
             if (serviceIds === null) {
                 throw "Event parameter must be a string or an array of strings";
@@ -109,15 +110,20 @@ function createJoki(initialOptions = {}) {
             return replies;
         }
 
-        // Broadcast event to all services and all listeners. Must have the from parameter defined
+        // Broadcast event to all services and all listeners. Must have the from parameter defined and does not send to itself
         if (event.broadcast === true && event.from !== undefined) {
             _services.forEach(service => {
-                service.fn(event);
+                if(service.id !== event.from) {
+                    service.fn(event);
+                }
             });
             const replies = [];
             _listeners.forEach(events => {
                 events.forEach(on => {
-                    replies.push(on.event.fn(event));
+                    if(on.id !== event.from) {
+                        replies.push(on.event.fn(event));
+                    }
+                    
                 });
             });
             return replies;
@@ -159,7 +165,10 @@ function createJoki(initialOptions = {}) {
             throw `Service with ${service.id} already exists`;
         }
         if (service.fn === undefined || typeof service.fn !== "function") {
-            throw `Service must have a messageHandler function stored to parameter 'key'`;
+            throw `Service must have a messageHandler function stored to parameter 'fn'`;
+        }
+        if (service.id === undefined || typeof service.id !== "string") {
+            throw `Service must have a unique id stored to parameter 'id'`;
         }
         _txt(`Added a new service with id ${service.id}`);
         _services.set(service.id, service);
@@ -215,7 +224,7 @@ function createJoki(initialOptions = {}) {
     };
 }
 
-const identifier = "0.6.0-alpha";
+const identifier = "0.6.0-alpha-2";
 
 exports.createJoki = createJoki;
 exports.identifier = identifier;
