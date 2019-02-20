@@ -103,7 +103,10 @@ function createJoki(initialOptions = {}) {
                         if(replies[key] === undefined) {
                             replies[key] = [];
                         }
-                        replies[key].push(on.event.fn(event));
+                        if(on.event.from === undefined || on.event.from === event.from) {
+                            replies[key].push(on.event.fn(event));
+                        }
+                        
                     });
                 }
             });
