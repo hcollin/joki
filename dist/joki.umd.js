@@ -15,7 +15,7 @@
         function ask(event) {
             _txt(`Ask from ${event.from} about ${event.key}`);
 
-            if(event.syncAsk === true) {
+            if (event.syncAsk === true) {
                 return trigger(event);
             }
 
@@ -23,10 +23,9 @@
                 try {
                     const replies = trigger(event);
                     resolve(replies);
-                } catch(err) {
+                } catch (err) {
                     reject(err);
                 }
-                
             });
         }
 
@@ -44,8 +43,18 @@
                 };
             }
 
-            const eventKey = event.key === undefined ? "all" : typeof event.key === "string" ? event.key : null;
+            // const eventKey = event.key === undefined ? "all" : typeof event.key === "string" ? event.key : null;
 
+            const eventKey =
+                event.key !== undefined
+                    ? typeof event.key === "string"
+                        ? event.key
+                        : null
+                    : event.from !== undefined
+                        ? event.from
+                        : "all";
+
+            _txt(`EventKeys: orig: ${event.key} parsed: ${eventKey} from: ${event.from}`);
             if (event.fn === undefined || typeof event.fn !== "function") {
                 throw "Joki event subscriber must have handler function assigned to parameter 'key'";
             }
@@ -72,11 +81,21 @@
         }
 
         function trigger(event) {
-            _txt(`Trigger an event.\n\tfrom: ${event.from}\n\tto: ${event.to}\n\tkey: ${event.key}\n\tbroadcast: ${event.broadcast === true ? "yes": "no"}`);
+            _txt(
+                `Trigger an event.\n\tfrom: ${event.from}\n\tto: ${event.to}\n\tkey: ${event.key}\n\tbroadcast: ${
+                event.broadcast === true ? "yes" : "no"
+            }\n\tbody length: ${event.body !== undefined ? event.body : "N/A"}`
+            );
             // Only trigger a service
             if (event.to !== undefined) {
-
-                const serviceIds = typeof event.to === "string" ? [event.to] : Array.isArray(event.to) ? event.to : event.to === true ? Array.from(_services.keys()) :null;
+                const serviceIds =
+                    typeof event.to === "string"
+                        ? [event.to]
+                        : Array.isArray(event.to)
+                        ? event.to
+                        : event.to === true
+                        ? Array.from(_services.keys())
+                        : null;
                 if (serviceIds === null) {
                     throw "Event parameter must be a string or an array of strings";
                 }
@@ -89,6 +108,22 @@
                 return replies;
             }
 
+            // // Send event to those listeners that have subscribed to this event source.
+            // if(event.from !== undefined) {
+            //     if(_listeners.has(event.from)) {
+            //         const sourceListeners = _listeners.get(event.from);
+            //         sourceListeners.forEach(on => {
+
+            //         });
+
+            //     }
+            // }
+
+            if (event.key === undefined && event.from !== undefined && event.broadcast !== true) {
+                event.key = event.from;
+                event.serviceUpdate = true;
+            }
+
             // Trigger listeners
             if (event.key !== undefined && event.onlyServices !== true) {
                 const eventKeys = typeof event.key === "string" ? [event.key] : Array.isArray(event.key) ? event.key : null;
@@ -99,12 +134,22 @@
                 eventKeys.forEach(key => {
                     if (_listeners.has(key)) {
                         const eventListeners = _listeners.get(key);
+                        _txt(`Listener count for key ${key} is ${eventListeners.size}`);
                         eventListeners.forEach(on => {
-                            if(replies[key] === undefined) {
+                            if (replies[key] === undefined) {
                                 replies[key] = [];
                             }
-                            if(on.event.from === undefined || on.event.from === event.from) {
-                                replies[key].push(on.event.fn(event));
+
+                            
+                            if(event.serviceUpdate) {
+                                _txt(`ServiceUpdate\n\tLISTENER:\n\t\tFrom:${on.event.from}\n\t\tkey:${on.event.key}\n\tEVENT\n\t\tFrom:${event.from}\n\t\tKey:${event.key}`);
+                                if(on.event.from === event.from) {
+                                    replies[key].push(on.event.fn(event));
+                                }
+                            } else {
+                                if(on.event.from === undefined || on.event.from === event.from) {
+                                    replies[key].push(on.event.fn(event));
+                                }
                             }
                             
                         });
@@ -113,24 +158,23 @@
                 return replies;
             }
 
-            // Broadcast event to all services and all listeners. Must have the from parameter defined and does not send to itself
-            if (event.broadcast === true && event.from !== undefined) {
-                _services.forEach(service => {
-                    if(service.id !== event.from) {
-                        service.fn(event);
-                    }
-                });
-                const replies = [];
-                _listeners.forEach(events => {
-                    events.forEach(on => {
-                        if(on.id !== event.from) {
-                            replies.push(on.event.fn(event));
-                        }
-                        
-                    });
-                });
-                return replies;
-            }
+            // // Broadcast event to all services and all listeners. Must have the from parameter defined and does not send to itself
+            // if (event.broadcast === true && event.from !== undefined) {
+            //     _services.forEach(service => {
+            //         if (service.id !== event.from) {
+            //             service.fn(event);
+            //         }
+            //     });
+            //     const replies = [];
+            //     _listeners.forEach(events => {
+            //         events.forEach(on => {
+            //             if (on.id !== event.from) {
+            //                 replies.push(on.event.fn(event));
+            //             }
+            //         });
+            //     });
+            //     return replies;
+            // }
         }
 
         function listeners() {
@@ -138,7 +182,7 @@
             return eventKeys.map(key => {
                 return {
                     key: key,
-                    size: _listeners.get(key).size
+                    size: _listeners.get(key).size,
                 };
             });
             // return Array.from(_listeners.keys());
@@ -193,7 +237,6 @@
          * @param {*} onId
          */
         function _off(eventKey, onId) {
-            
             if (_listeners.has(eventKey)) {
                 if (_listeners.get(eventKey).has(onId)) {
                     _listeners.get(eventKey).delete(onId);

@@ -189,8 +189,109 @@ describe("createJoki 0.6", () => {
             syncAsk: true
         })).toEqual({alpha: ['No body found']});
 
+    });
+
+    it('Only one listener must trigger from service update call', () => {
+        const joki = createJoki({debug: false});
+
+        joki.on({
+            from: "service",
+            fn: (event) => {
+                expect(event.body).toBe("update");
+            }
+        });
+
+        joki.on({
+            key: "service",
+            fn: (event) => {
+                expect(event.body).toBe("update");
+            }
+        });
+
+        joki.trigger({
+            from: "service",
+            body: "update"
+        });
+
+        expect.assertions(1);
+
+    })
+
+
+    it('Test event from key', () => {
+        const joki = createJoki({debug: true});
+
+        const counter = jest.fn();
+
+        const list1 = joki.on({
+            key: "dostuff",
+            fn: event => {
+                console.log("Listener 1",event.body);
+                expect(event.key).toBe("dostuff");
+                expect(["Hello", "World"]).toContain(event.body);
+                counter();
+            }
+        });
+
+        const list2 = joki.on({
+            key: "dostuff",
+            from: "service",
+            fn: event => {
+                console.log("Listener 2",event.body);
+                expect(event.body).toBe("World");
+                expect(event.from).toBe("service");
+                expect(event.key).toBe("dostuff");
+                counter();
+            }
+        });
+
         
 
+        const list3 = joki.on({
+            from: "service",
+            fn: event => {
+                console.log("Listener 3", event.body, event.from, event.key);
+                
+                switch(event.key) {
+                    case "service":
+                        expect(event.from).toBe("service");
+                        expect(event.body).toBe("Again");
+                        counter();
+                        break;
+                    case "dostuff":
+                        expect(event.from).toBe("service");
+                        expect(event.key).toBe("dostudd");
+                        expect(event.body).toBe("World");
+                        counter();
+                        break;
+                    default:
+                        expect(true).toBe(false);
+                        break;
+                }
+            }
+        })
+
+        expect(joki.listeners()).toEqual([{key: 'dostuff', size: 2}, {key: 'service', size: 1}]);
+
+        joki.trigger({
+            key: "dostuff",
+            body: "Hello"
+        });
+
+        joki.trigger({
+            key: "dostuff",
+            from :"service",
+            body: "World"
+        });
+
+        joki.trigger({
+            from: "service",
+            body: "Again"
+        });
+
+        expect(counter).toBeCalledTimes(5);
+
+        expect.assertions(15);
     })
 });
 
