@@ -5,9 +5,9 @@ import createJoki from "./joki/createJoki";
 // import createReducerService from "./services/reducerService";
 // import createFetchService from "./services/fetchService";
 
-import { useListenJokiEvent, useListenJokiService, trigger } from "./react/hooks";
+// import { useListenJokiEvent, useListenJokiService, trigger } from "./react/hooks";
 
-const identifier = "0.6.0-alpha-3";
+const identifier = "0.6.0";
 
 export {
     createJoki,
@@ -20,5 +20,6 @@ export {
     // useListenJokiEvent as useEvent,
     // useListenJokiService as useService,
     // trigger,
+    
     identifier
 };

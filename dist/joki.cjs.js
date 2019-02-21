@@ -2,16 +2,40 @@
 
 Object.defineProperty(exports, '__esModule', { value: true });
 
-require('react');
-
+/**
+ * Create a new Joki event listener.
+ * 
+ * 
+ * @param {Object} [initialOptions={}]
+ * @param {Boolean} initialOptions.debug - If set to true will write a LOT of debug data to console.
+ * @returns {Object} The Joki object that handles the services and events.
+ */
 function createJoki(initialOptions = {}) {
+    
+    // All the options are here
     const _options = initialOptions;
-
+    
+    // All services are store to this map
     const _services = new Map();
+
+    // All listeners are store to this map
     const _listeners = new Map();
 
+    // This counter is used to generate unique ids for listeners.
+    // TODO: Make this more robust and preferably something that can be changed with options.
     let idCounter = 0;
 
+    /**
+     * Triggers an event with the expectation of a return value
+     *
+     * @param {Object} event - Joki Event Object
+     * @param {String} event.key - The event key to be triggered
+     * @param {String} event.from - Who is sending this event
+     * @param {String} event.to - Direct this event to this serviceId
+     * @param {String} event.body - The data sent with this event
+     * @param {Boolean} [event.syncAsk=false] - If set to true will make a synchronous call, otherwise will return a promise
+     * @returns {(Promise|Object|Array)} - Returns an array or object depending if the event had property 'to' set or not. Promise will resolve with return value as an argument.
+     */
     function ask(event) {
         _txt(`Ask from ${event.from} about ${event.key}`);
 
@@ -29,6 +53,15 @@ function createJoki(initialOptions = {}) {
         });
     }
 
+    /**
+     * Subscribe a listener to Joki
+     *
+     * @param {Object} event - The listener object used to listen for triggered events.
+     * @param {(String|Array)} key - This listener is triggered by events with this key (or keys if provided in array)
+     * @param {String} from - Triggered by events sent by this source (usually serviceId)
+     * @param {Function} fn - Handler function that is triggered. This function takes the event object that triggers it as an argument.
+     * @returns {Function} - Returns an anonymous function that when called removes the listener subscription from Joki.
+     */
     function on(event) {
         // If keys is an array, each key will have a separate listener
         if (Array.isArray(event.key)) {
@@ -43,40 +76,7 @@ function createJoki(initialOptions = {}) {
             };
         }
 
-        // const eventKey = event.key === undefined ? "all" : typeof event.key === "string" ? event.key : null;
-
-
-
-
-        // const eventKey =
-        //     event.key !== undefined
-        //         ? typeof event.key === "string"
-        //             ? event.key
-        //             : null
-        //         : event.from !== undefined
-        //             ? event.from
-        //             : "all";
-
-        // _txt(`EventKeys: orig: ${event.key} parsed: ${eventKey} from: ${event.from}`);
-        // if (event.fn === undefined || typeof event.fn !== "function") {
-        //     throw "Joki event subscriber must have handler function assigned to parameter 'key'";
-        // }
-
-        // if (eventKey === null) {
-        //     throw `Invalid key ${key} for event ${event}`;
-        // }
-
         const onId = `on-${idCounter++}`;
-        // _txt(`Listener for event.key ${eventKey} with if ${onId}`);
-
-        // if (!_listeners.has(eventKey)) {
-        //     _listeners.set(eventKey, new Map());
-        // }
-
-        // _listeners.get(eventKey).set(onId, {
-        //     id: onId,
-        //     event: event,
-        // });
 
         _listeners.set(onId, event);
 
@@ -85,6 +85,18 @@ function createJoki(initialOptions = {}) {
         };
     }
 
+    /**
+     * Send an event to the Joki
+     *
+     * NOTICE! Even though trigger returns values, they should not be used. If the return values are needed us the function ask.
+     *
+     * @param {Object} event - Joki Event Object
+     * @param {String} event.key - The event key to be triggered
+     * @param {String} event.from - Who is sending this event
+     * @param {String} event.to - Direct this event to this serviceId
+     * @param {String} event.body - The data sent with this event
+     * @returns {(Object|Array)} Returns an array of replies from the listeners or and Object of replies from services if the event contained 'to' property
+     */
     function trigger(event) {
         _txt(
             `Trigger an event.\n\tfrom: ${event.from}\n\tto: ${event.to}\n\tkey: ${event.key}\n\tbroadcast: ${
@@ -113,127 +125,52 @@ function createJoki(initialOptions = {}) {
             return replies;
         }
 
-        // // Send event to those listeners that have subscribed to this event source.
-        // if(event.from !== undefined) {
-        //     if(_listeners.has(event.from)) {
-        //         const sourceListeners = _listeners.get(event.from);
-        //         sourceListeners.forEach(on => {
-
-        //         });
-
-        //     }
-        // }
-
         const replies = [];
         _listeners.forEach(on => {
             _txt(`Listener ${on.from} ${on.key} ${on.to}`);
             let match = true;
             // Not really working yet.
 
-
-
-            if((on.from !== undefined) && event.from !== on.from) {
+            if (on.from !== undefined && event.from !== on.from) {
                 match = false;
             }
 
-            if((on.key !== undefined) && event.key !== on.key) {
+            if (on.key !== undefined && event.key !== on.key) {
                 match = false;
             }
 
-            _txt(`\nON: F:${on.from} K:${on.key} T:${on.to}\nEV: F:${event.from} K:${event.key} T:${event.to}\n\tMatch? ${match ? "YES": "NO"}\n`);
+            _txt(
+                `\nON: F:${on.from} K:${on.key} T:${on.to}\nEV: F:${event.from} K:${event.key} T:${
+                    event.to
+                }\n\tMatch? ${match ? "YES" : "NO"}\n`
+            );
 
-            if(match) {
+            if (match) {
                 replies.push(on.fn(event));
             }
-
         });
 
         return replies;
-
-
-        // if (event.key === undefined && event.from !== undefined && event.broadcast !== true) {
-        //     event.key = event.from;
-        //     event.serviceUpdate = true;
-        // }
-
-        // // Trigger listeners
-        // if (event.key !== undefined && event.onlyServices !== true) {
-        //     const eventKeys = typeof event.key === "string" ? [event.key] : Array.isArray(event.key) ? event.key : null;
-        //     if (eventKeys === null) {
-        //         throw "Event parameter key must be a string or an array of strings";
-        //     }
-        //     const replies = {};
-        //     eventKeys.forEach(key => {
-        //         if (_listeners.has(key)) {
-        //             const eventListeners = _listeners.get(key);
-        //             _txt(`Listener count for key ${key} is ${eventListeners.size}`);
-        //             eventListeners.forEach(on => {
-        //                 if (replies[key] === undefined) {
-        //                     replies[key] = [];
-        //                 }
-
-                        
-        //                 if(event.serviceUpdate) {
-        //                     _txt(`ServiceUpdate\n\tLISTENER:\n\t\tFrom:${on.event.from}\n\t\tkey:${on.event.key}\n\tEVENT\n\t\tFrom:${event.from}\n\t\tKey:${event.key}`);
-        //                     if(on.event.from === event.from) {
-        //                         replies[key].push(on.event.fn(event));
-        //                     }
-        //                 } else {
-        //                     if(on.event.from === undefined || on.event.from === event.from) {
-        //                         replies[key].push(on.event.fn(event));
-        //                     }
-        //                 }
-                        
-        //             });
-        //         }
-        //     });
-        //     return replies;
-        // }
-
-        // // Broadcast event to all services and all listeners. Must have the from parameter defined and does not send to itself
-        // if (event.broadcast === true && event.from !== undefined) {
-        //     _services.forEach(service => {
-        //         if (service.id !== event.from) {
-        //             service.fn(event);
-        //         }
-        //     });
-        //     const replies = [];
-        //     _listeners.forEach(events => {
-        //         events.forEach(on => {
-        //             if (on.id !== event.from) {
-        //                 replies.push(on.event.fn(event));
-        //             }
-        //         });
-        //     });
-        //     return replies;
-        // }
     }
 
+    /**
+     * List of the current listeners registered
+     * @returns {Array} - Array contains one object for each registered listener with arguments key and from
+     */
     function listeners() {
         return Array.from(_listeners.values()).map(on => {
             return {
                 key: on.key,
-                from: on.from
+                from: on.from,
             };
         });
-        
-        // const eventKeys = Array.from(_listeners.keys());
-        
-
-
-        // return eventKeys.map(key => {
-        //     return {
-        //         key: key,
-        //         size: _listeners.get(key).size,
-        //     };
-        // });
-        // return Array.from(_listeners.keys());
     }
 
     /**
-     * get and set options for Joki Instance
-     * @param {*} key
-     * @param {*} newValue
+     * Get and set options for Joki Instance
+     * @param {String} key - The option to be changed
+     * @param {*} newValue - The value to be set for the value
+     * @returns {*} Either the current option of the provided key or if not provided an Object with all key/value pairs currently set
      */
     function options(key = null, newValue = undefined) {
         if (key == null && newValue == undefined) {
@@ -249,6 +186,12 @@ function createJoki(initialOptions = {}) {
         }
     }
 
+    /**
+     * Add a new service to Joki
+     * @param {Object} service - Parameters for this service
+     * @param {String} service.id - Unique ID for this service that can be used in events.Array
+     * @param {Function} service.fn - The incoming event handler for this service
+     */
     function addService(service) {
         if (_services.has(service.id)) {
             throw `Service with ${service.id} already exists`;
@@ -260,9 +203,14 @@ function createJoki(initialOptions = {}) {
             throw `Service must have a unique id stored to parameter 'id'`;
         }
         _txt(`Added a new service with id ${service.id}`);
+        console.log("JOKI:service:added", service.id);
         _services.set(service.id, service);
     }
 
+    /**
+     * Remove service from Joki
+     * @param {String} serviceId - The id of the service to be removed
+     */
     function removeService(serviceId) {
         if (_services.has(serviceId)) {
             _txt(`Removed a service with id ${service.id}`);
@@ -270,16 +218,21 @@ function createJoki(initialOptions = {}) {
         }
     }
 
+    /**
+     * Return an array of serviceIds registered to Joki
+     * @returns {Array}
+     */
     function listServices() {
         return Array.from(_services.keys());
     }
 
     /**
-     * Remove listener
-     * @param {*} onId
+     * Remove a listener with Id
+     * @param {String} onId
+     * @private
      */
     function _off(onId) {
-        if(_listeners.has(onId)) {
+        if (_listeners.has(onId)) {
             _listeners.delete(onId);
             _txt(`Removed listener ${onId}`);
         }
@@ -297,6 +250,12 @@ function createJoki(initialOptions = {}) {
         // }
     }
 
+    /**
+     * Writes a message to the console if the option.debug is set to true
+     * 
+     * @param {String} msg - The message to be written to the console 
+     * @param {String} [subcategory="Debug"] - The Debug subCategory can be replaced with something else.
+     */
     function _txt(msg, subcategory = "Debug") {
         if (_options.debug === true) {
             console.debug(`Joki:${subcategory}: ${msg}`);
@@ -317,7 +276,15 @@ function createJoki(initialOptions = {}) {
     };
 }
 
-const identifier = "0.6.0-alpha-3";
+// import connectJoki from "./joki/connectJoki";
+
+// import ClassService from "./services/ClassService";
+// import createReducerService from "./services/reducerService";
+// import createFetchService from "./services/fetchService";
+
+// import { useListenJokiEvent, useListenJokiService, trigger } from "./react/hooks";
+
+const identifier = "0.6.0";
 
 exports.createJoki = createJoki;
 exports.identifier = identifier;
