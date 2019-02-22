@@ -218,7 +218,6 @@ describe("createJoki 0.6", () => {
             body: "update",
         });
 
-
         expect(counter).toBeCalledTimes(1);
         expect.assertions(2);
     });
@@ -292,5 +291,44 @@ describe("createJoki 0.6", () => {
         expect(counter).toBeCalledTimes(5);
 
         expect.assertions(14);
+    });
+
+    it("Check service initialization", () => {
+        const joki = createJoki();
+
+        const initAlpha = jest.fn();
+        const initBeta = jest.fn();
+
+        joki.addService({
+            id: "alpha",
+            fn: event => {
+                switch (event.key) {
+                    case "initialize":
+                        initAlpha();
+                        break;
+                    default:
+                        break;
+                }
+            },
+        });
+
+        joki.initServices({});
+        joki.initServices({});
+
+        joki.addService({
+            id: "beta",
+            fn: event => {
+                switch (event.key) {
+                    case "initialize":
+                        initBeta();
+                        break;
+                    default:
+                        break;
+                }
+            },
+        });
+
+        expect(initAlpha).toBeCalledTimes(1);
+        expect(initBeta).toBeCalledTimes(1);
     });
 });

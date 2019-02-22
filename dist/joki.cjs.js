@@ -4,17 +4,17 @@ Object.defineProperty(exports, '__esModule', { value: true });
 
 /**
  * Create a new Joki event listener.
- * 
- * 
+ *
+ *
  * @param {Object} [initialOptions={}]
  * @param {Boolean} initialOptions.debug - If set to true will write a LOT of debug data to console.
+ * @param {Boolean} initialOptions.noInit - If set to true no initialization events are sent to services
  * @returns {Object} The Joki object that handles the services and events.
  */
 function createJoki(initialOptions = {}) {
-    
     // All the options are here
     const _options = initialOptions;
-    
+
     // All services are store to this map
     const _services = new Map();
 
@@ -24,6 +24,11 @@ function createJoki(initialOptions = {}) {
     // This counter is used to generate unique ids for listeners.
     // TODO: Make this more robust and preferably something that can be changed with options.
     let idCounter = 0;
+
+    // Contains internal states that changes the logic
+    const _statuses = {
+        firstInitDone: _options.noInit !== undefined ? _options.noInit : false,
+    };
 
     /**
      * Triggers an event with the expectation of a return value
@@ -202,9 +207,16 @@ function createJoki(initialOptions = {}) {
         if (service.id === undefined || typeof service.id !== "string") {
             throw `Service must have a unique id stored to parameter 'id'`;
         }
+
+        service.initialized = _options.noInit === true;
         _txt(`Added a new service with id ${service.id}`);
-        console.log("JOKI:service:added", service.id);
+        // console.log("JOKI:service:added", service.id);
         _services.set(service.id, service);
+
+        if(_statuses.firstInitDone === true) {
+            _initializeService(service.id);
+        }
+        
     }
 
     /**
@@ -227,6 +239,34 @@ function createJoki(initialOptions = {}) {
     }
 
     /**
+     * Send initialize event to all registered services, if it hasn't been done yet.
+     * 
+     * @param {Object} [data={}] - Data Object included into the initialization body
+     */
+    function initServices(data={}) {
+        if (_statuses.firstInitDone === false) {
+            _services.forEach((service, serviceId) => {
+                _initializeService(serviceId, data);
+            });
+            _statuses.firstInitDone = true;
+        }
+    }
+
+    function _initializeService(serviceId, data={}) {
+        if (_services.has(serviceId)) {
+            const service = _services.get(serviceId);
+            if (service.initialized !== true) {
+                service.initialized = true;
+                service.fn({
+                    from: "JOKI",
+                    key: "initialize",
+                    body: data,
+                });
+            }
+        }
+    }
+
+    /**
      * Remove a listener with Id
      * @param {String} onId
      * @private
@@ -236,24 +276,12 @@ function createJoki(initialOptions = {}) {
             _listeners.delete(onId);
             _txt(`Removed listener ${onId}`);
         }
-
-        // if (_listeners.has(eventKey)) {
-        //     if (_listeners.get(eventKey).has(onId)) {
-        //         _listeners.get(eventKey).delete(onId);
-        //         if (_listeners.get(eventKey).size === 0) {
-        //             _listeners.delete(eventKey);
-        //             _txt(`Removed the last listener ${onId} from event ${eventKey}`);
-        //         } else {
-        //             _txt(`Removed listener ${onId} from event ${eventKey}`);
-        //         }
-        //     }
-        // }
     }
 
     /**
      * Writes a message to the console if the option.debug is set to true
-     * 
-     * @param {String} msg - The message to be written to the console 
+     *
+     * @param {String} msg - The message to be written to the console
      * @param {String} [subcategory="Debug"] - The Debug subCategory can be replaced with something else.
      */
     function _txt(msg, subcategory = "Debug") {
@@ -271,6 +299,7 @@ function createJoki(initialOptions = {}) {
         addService,
         removeService,
         listServices,
+        initServices,
 
         options,
     };
@@ -284,7 +313,7 @@ function createJoki(initialOptions = {}) {
 
 // import { useListenJokiEvent, useListenJokiService, trigger } from "./react/hooks";
 
-const identifier = "0.6.0";
+const identifier = "0.6.1";
 
 exports.createJoki = createJoki;
 exports.identifier = identifier;
