@@ -7,7 +7,7 @@ import createJoki from "./joki/createJoki";
 
 // import { useListenJokiEvent, useListenJokiService, trigger } from "./react/hooks";
 
-const identifier = "0.6.1";
+const identifier = "0.6.2";
 
 export {
     createJoki,

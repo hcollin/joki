@@ -79,6 +79,11 @@ function createJoki(initialOptions = {}) {
 
         const onId = `on-${idCounter++}`;
 
+        _txt(
+            `New listener created for with ${event.key ? "key " + event.key : ""} ${
+                event.from ? "from: " + event.from : ""
+            } `
+        );
         _listeners.set(onId, event);
 
         return () => {
@@ -155,6 +160,54 @@ function createJoki(initialOptions = {}) {
     }
 
     /**
+     * Send an event to all services currently registered and listeners with listeners for this broadcast eventKey.
+     *
+     * This function should be used when a system wide event needs to be processed (like logout, initialize etc.).
+     * Please be careful of the keys used to trigger broadcast events so that the services do not confuse these
+     * general events to their specific events. A broadcast key is added to the event and set to true that can be
+     * checked in the service if necessary.
+     *
+     * Broadcast events NEVER return anything. If a response for broadcast is expected a separate listener must be
+     * created and triggered from the services by hand. The reason for this is to minimize infinite loop situations.
+     *
+     * The from field is a mandatory for broadcast events.
+     *
+     * @param {Object} event - Joki Event Object
+     * @param {String} event.key - The event key to be triggered
+     * @param {String} event.from - Who is sending this event. Mandatory in broadcasts.
+     * @param {Boolean} event.servicesOnly - If set to true will not trigger listeners outside services
+     * @param {String} event.to - Direct this event to this serviceId
+     * @param {String} event.body - The data sent with this event
+     */
+    function broadcast(event) {
+        if (event.key === undefined || event.key === null || typeof event.key !== "string") {
+            _txt(`Broadcast from ${event.from} event missing the key parameter.`);
+            return;
+        }
+        if (event.from === undefined || event.from === null || typeof event.from !== "string") {
+            _txt(`Broadcast with key ${event.key} event missing the from parameter.`);
+            return;
+        }
+        _txt(
+            `Broadcast event from ${event.from} to key ${event.key} ${
+                event.servicesOnly === true ? "to services only" : ""
+            }`
+        );
+        event.broadcast = true;
+        _services.forEach(service => {
+            service.fn(event);
+        });
+
+        if (event.servicesOnly !== true) {
+            _listeners.forEach(on => {
+                if (on.key === event.key && (on.from === undefined || on.from === event.from)) {
+                    on.fn(event);
+                }
+            });
+        }
+    }
+
+    /**
      * List of the current listeners registered
      * @returns {Array} - Array contains one object for each registered listener with arguments key and from
      */
@@ -209,10 +262,9 @@ function createJoki(initialOptions = {}) {
         // console.log("JOKI:service:added", service.id);
         _services.set(service.id, service);
 
-        if(_statuses.firstInitDone === true) {
+        if (_statuses.firstInitDone === true) {
             _initializeService(service.id);
         }
-        
     }
 
     /**
@@ -236,10 +288,10 @@ function createJoki(initialOptions = {}) {
 
     /**
      * Send initialize event to all registered services, if it hasn't been done yet.
-     * 
+     *
      * @param {Object} [data={}] - Data Object included into the initialization body
      */
-    function initServices(data={}) {
+    function initServices(data = {}) {
         if (_statuses.firstInitDone === false) {
             _services.forEach((service, serviceId) => {
                 _initializeService(serviceId, data);
@@ -248,7 +300,7 @@ function createJoki(initialOptions = {}) {
         }
     }
 
-    function _initializeService(serviceId, data={}) {
+    function _initializeService(serviceId, data = {}) {
         if (_services.has(serviceId)) {
             const service = _services.get(serviceId);
             if (service.initialized !== true) {
@@ -291,6 +343,7 @@ function createJoki(initialOptions = {}) {
         on,
         trigger,
         listeners,
+        broadcast,
 
         addService,
         removeService,
@@ -309,6 +362,6 @@ function createJoki(initialOptions = {}) {
 
 // import { useListenJokiEvent, useListenJokiService, trigger } from "./react/hooks";
 
-const identifier = "0.6.1";
+const identifier = "0.6.2";
 
 export { createJoki, identifier };

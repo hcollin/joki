@@ -1,12 +1,20 @@
 const {
     createJoki,
+    identifier
     // connectJoki,
     // ClassService,
     // createReducerService,
     // createFetchService,
 } = require("../dist/joki.cjs.js");
 
-describe("createJoki 0.6", () => {
+
+
+describe("createJoki 0.6.2", () => {
+
+    it('Identifier must be of correct version', () => {
+        expect(identifier).toBe("0.6.2");
+    });
+
     it("Test that createJoki funtion has valid api", () => {
         const joki = createJoki();
         expect(typeof joki.on).toBe("function");
@@ -330,5 +338,99 @@ describe("createJoki 0.6", () => {
 
         expect(initAlpha).toBeCalledTimes(1);
         expect(initBeta).toBeCalledTimes(1);
+    });
+
+    it("broadcast function must require from and key parameters and trigger all registered servies", () => {
+        const joki = createJoki({ debug: false });
+
+        const broadcastSuccess = jest.fn();
+        const broadcastFailure = jest.fn();
+
+        joki.addService({
+            id: "alpha",
+            fn: event => {
+                switch (event.key) {
+                    case "broadcastEvent":
+                        if (event.body.success === true) {
+                            broadcastSuccess();
+                        }
+                        if (event.body.success === false) {
+                            broadcastFailure();
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            },
+        });
+
+        joki.addService({
+            id: "beta",
+            fn: event => {
+                switch (event.key) {
+                    case "broadcastEvent":
+                        if (event.body.success === true) {
+                            broadcastSuccess();
+                        }
+                        if (event.body.success === false) {
+                            broadcastFailure();
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            },
+        });
+
+        joki.on({
+            key: "broadcastEvent",
+            fn: event => {
+                expect(event.broadcast).toBeTruthy();
+                if (event.body.success === true) {
+                    broadcastSuccess();
+                }
+                if (event.body.success === false) {
+                    broadcastFailure();
+                }
+            },
+        });
+
+        joki.on({
+            key: "broadcastEvent",
+            from: "another-source",
+            fn: event => {
+                broadcastFailure();
+            },
+        });
+
+        joki.broadcast({
+            key: "broadcastEvent",
+            body: {
+                text: "Should not trigger anything as the from is missing",
+                success: false,
+            },
+        });
+
+        joki.broadcast({
+            key: "broadcastEvent",
+            from: "test-suite",
+            servicesOnly: true,
+            body: {
+                text: "Should trigger succcess on services",
+                success: true,
+            },
+        });
+
+        joki.broadcast({
+            key: "broadcastEvent",
+            from: "test-suite",
+            body: {
+                text: "Should trigger succcess on both services and listeners",
+                success: true,
+            },
+        });
+
+        expect(broadcastFailure).toBeCalledTimes(0);
+        expect(broadcastSuccess).toBeCalledTimes(5);
     });
 });
