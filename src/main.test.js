@@ -1,378 +1,436 @@
 const {
     createJoki,
-    connectJoki,
-    ClassService,
-    createReducerService,
-    createFetchService,
+    identifier
+    // connectJoki,
+    // ClassService,
+    // createReducerService,
+    // createFetchService,
 } = require("../dist/joki.cjs.js");
 
-describe("Testing createJoki", () => {
-    class Service {
-        constructor(serviceId) {
-            this.bus = connectJoki(serviceId, this.getState.bind(this), this.incoming.bind(this));
-            this.data = {
-                counter: 0,
-                users: [],
-            };
-            this.serviceId = serviceId;
-        }
 
-        setBus(bus) {
-            this.bus.set(bus);
-        }
 
-        testMessage() {
-            this.bus.send("HELLO", "test-service");
-        }
+describe("createJoki 0.6.2", () => {
 
-        getState() {
-            return this.data;
-        }
-
-        incoming(sender, message, eventKey) {
-            expect(message).toBe("HELLO");
-            expect(sender).not.toBe(this.serviceId);
-        }
-    }
-
-    it("Send messages to listener ", () => {
-        const Joki = createJoki();
-
-        const listId = Joki.listen((sender, msg, eventKey) => {
-            expect(eventKey).toBe("test");
-        }, "test");
-
-        expect(listId).toBe("listener-0");
-        expect(Joki.getEventKeys()).toEqual(["all", "test"]);
-        expect(Joki._getListeners("test").length).toBe(1);
-
-        Joki.send("test-suite", 0, "test");
-        Joki.send("test-suite", 1, "test");
-
-        Joki.stop(listId);
-
-        expect(Joki._getListeners("test").length).toBe(0);
+    it('Identifier must be of correct version', () => {
+        expect(identifier).toBe("0.9.0");
     });
 
-    it("Create multiple listeners and remove one", () => {
-        const Joki = createJoki();
-        // Joki.debug(true);
-        const lids = [];
-
-        lids.push(Joki.listen((s, m, e) => {}, "test"));
-
-        lids.push(Joki.listen((s, m, e) => {}, "test-too"));
-
-        lids.push(Joki.listen((s, m, e) => {}, "test-again"));
-
-        lids.push(Joki.listen((s, m, e) => {}, "test"));
-
-        expect(Joki._getListeners("test-again").length).toBe(1);
-        expect(Joki._getListeners("test-too").length).toBe(1);
-        expect(Joki._getListeners("test").length).toBe(2);
-
-        expect(Joki.getEventKeys()).toEqual(["all", "test", "test-too", "test-again"]);
-        expect(Joki.getEventKeys()).toEqual(["all", "test", "test-too", "test-again"]);
-        expect(lids).toEqual(["listener-0", "listener-1", "listener-2", "listener-3"]);
-        Joki.stop(lids.splice(2, 1));
-        expect(lids).toEqual(["listener-0", "listener-1", "listener-3"]);
-        expect(Joki._getListeners("test-again").length).toBe(0);
+    it("Test that createJoki funtion has valid api", () => {
+        const joki = createJoki();
+        expect(typeof joki.on).toBe("function");
+        expect(typeof joki.trigger).toBe("function");
+        expect(typeof joki.ask).toBe("function");
+        expect(typeof joki.addService).toBe("function");
+        expect(typeof joki.removeService).toBe("function");
+        expect(typeof joki.listServices).toBe("function");
+        expect(typeof joki.options).toBe("function");
     });
 
+    it("createJoki options Api", () => {
+        const joki = createJoki({
+            foo: "bar",
+        });
 
-    it('Test one time listener', (done) => {
-        const Joki = createJoki();
-
-        Joki.once((s, m, e) => {
-            expect(m).toBe(true);
-            expect(s).toBe("test-suite");
-            expect(e).toBe("hello");
-            done();
-        }, "hello");
-
-        Joki.send("test-suite", true, "hello");
-
-        expect.assertions(3);
+        joki.options("alpha", "omega");
+        expect(joki.options("foo")).toBe("bar");
+        expect(joki.options("alpha")).toBe("omega");
+        expect(joki.options()).toEqual({ foo: "bar", alpha: "omega" });
     });
 
-    it("Subscribe a service to Bus, using a class as a service", () => {
-        const Joki = createJoki();
+    it("Create an event listener and trigger it", done => {
+        const joki = createJoki({ debug: false });
 
-        const serv = new Service("test-service");
-        serv.setBus(Joki);
+        const unsubscribe = joki.on({
+            key: "test",
+            fn: event => {
+                expect(event.body).toEqual({ foo: "bar" });
+                done();
+            },
+        });
 
-        // console.log(Joki._getListeners());
-        // console.log(Joki.getService("test-service"));
+        expect(typeof unsubscribe).toBe("function");
 
-        expect(Joki.getService("test-service")).toEqual({ counter: 0, users: [] });
+        joki.trigger({
+            key: "test",
+            body: {
+                foo: "bar",
+            },
+        });
 
-        Joki.send("test-suite", "HELLO", "test-service");
-
-        serv.testMessage();
+        expect.assertions(2);
     });
 
-    it("Create multiple Services and communicate between them", () => {
-        const Joki = createJoki();
+    it("Create and remove a listener", () => {
+        const joki = createJoki();
 
-        class SimpleService {
-            constructor(id, joki) {
-                this.joki = connectJoki(id, this.getState.bind(this), this.incoming.bind(this));
-                this.data = {};
-                this.id = id;
-                this.joki.set(joki);
-            }
+        const unsubscribe = joki.on({
+            key: "test",
+            fn: event => true,
+        });
 
-            getState() {
-                return this.data;
-            }
+        expect(joki.listeners()).toEqual([{ key: "test" }]);
 
-            incoming(s, m, e) {
-                expect(s).not.toBe(this.id);
-                if (e === this.id) {
-                    this.data = {
-                        sender: s,
-                        message: m,
-                        eventKey: e,
-                    };
-                    this.send("gamma", m);
+        unsubscribe();
+
+        expect(joki.listeners().length).toBe(0);
+    });
+
+    it("Register same event to multiple keys, trigger one event and remove listener", () => {
+        const joki = createJoki();
+
+        const unsubscribe = joki.on({
+            key: ["alpha", "beta", "gamma"],
+            fn: event => {
+                if (event.key === "beta") {
+                    expect(event.body).toBe("foo");
                 }
-                if (this.id === "gamma" && e === "gamma") {
-                    this.send("Done", "final");
+
+                if (event.key === "alpha") {
+                    expect(event.body).toBe("bar");
                 }
-            }
-
-            send(msg, ek) {
-                this.joki.send(msg, ek);
-            }
-        }
-
-        Joki.listen((s, m, e) => {
-            expect(s).toBe("gamma");
-            expect(m).toBe("Done");
-            expect(e).toBe("final");
-        }, "final");
-
-        const alpha = new SimpleService("alpha", Joki);
-        const beta = new SimpleService("beta", Joki);
-        const gamma = new SimpleService("gamma", Joki);
-        const delta = new SimpleService("delta", Joki);
-
-        alpha.send("delta", "beta");
-
-        expect(beta.data.sender).toBe("alpha");
-        expect(delta.data.sender).toBe("beta");
-        expect(gamma.data.sender).toBe("delta");
-    });
-});
-
-describe("Testing class service", () => {
-
-    class MyService extends ClassService {
-        constructor(joki) {
-            super({
-                serviceId: "MyService",
-                joki: joki,
-            });
-            this.data = {
-                counter: 0,
-            };
-        }
-
-        getState() {
-            return this.data.counter;
-        }
-
-        messageHandler(sender, msg, eventKey) {
-            switch (eventKey) {
-                case "plus":
-                    this.data.counter++;
-                    break;
-                case "minus":
-                    this.data.counter--;
-                    break;
-                case "reset":
-                    this.data.counter = 0;
-                    break;
-                case "set":
-                    this.data.counter = msg;
-                    break;
-                default:
-                    break;
-            }
-        }
-    }
-
-    it("Testing ClassService functionality separately", () => {
-        const Joki = createJoki();
-        const serv = new MyService(Joki);
-
-        
-        expect(serv.getState()).toBe(0);
-        serv.messageHandler(null, 0, "plus");
-        expect(serv.getState()).toBe(1);
-        serv.messageHandler(null, 0, "reset");
-        expect(serv.getState()).toBe(0);
-        expect(Joki.services()).toEqual([{ id: "MyService" }]);
-    });
-
-    it("Testing ClassService via bus", () => {
-        const Joki = createJoki();
-        const serv = new MyService(Joki);
-
-        serv.messageHandler(null, 5, "set");
-        expect(serv.getState()).toBe(5);
-        expect(Joki.services()).toEqual([{ id: "MyService" }]);
-        expect(Joki.getService("MyService")).toBe(5);
-
-        Joki.send(null, 2, "set");
-        expect(Joki.getService("MyService")).toBe(2);
-        Joki.send(null, null, "plus");
-        expect(Joki.getService("MyService")).toBe(3);
-    });
-});
-
-describe("reducerService testing", () => {
-    it("testing the reducerService without bus", () => {
-        const Joki = createJoki();
-        const rstore = createReducerService("reducerStore", Joki, { counter: 0 }, (state, action) => {
-            switch (action.type) {
-                case "plus":
-                    return Object.assign({}, state, {
-                        counter: state.counter + (action.number !== undefined ? action.number : 1),
-                    });
-                case "minus":
-                    return Object.assign({}, state, {
-                        counter: state.counter - (action.number !== undefined ? action.number : 1),
-                    });
-                default:
-                    return state;
-            }
+            },
         });
 
-        expect(rstore.getState()).toEqual({ counter: 0 });
-        rstore.action({
-            type: "plus",
-        });
-        expect(rstore.getState()).toEqual({ counter: 1 });
-        rstore.action({
-            type: "plus",
-            number: 4,
-        });
-        expect(rstore.getState()).toEqual({ counter: 5 });
-    });
+        expect(joki.listeners().length).toBe(3);
 
-    it("reducerService with Joki", () => {
-        const Joki = createJoki();
-        const rstore = createReducerService("reducerStore", Joki, { counter: 0 }, (state, action) => {
-            switch (action.type) {
-                case "plus":
-                    return Object.assign({}, state, {
-                        counter: state.counter + (action.data.number !== undefined ? action.data.number : 1),
-                    });
-                case "minus":
-                    return Object.assign({}, state, {
-                        counter: state.counter - (action.data.number !== undefined ? action.data.number : 1),
-                    });
-                default:
-                    return state;
-            }
+        joki.trigger({
+            key: "beta",
+            body: "foo",
         });
 
-        expect(Joki.getService("reducerStore")).toEqual({ counter: 0 });
-        Joki.send(null, { number: 3 }, "plus");
-        expect(Joki.getService("reducerStore")).toEqual({ counter: 3 });
-    });
-});
-
-describe("fetchService", () => {
-    beforeEach(() => {
-        fetch.resetMocks();
-    });
-
-
-    it("Fetch Get promise", done => {
-        fetch.mockResponseOnce(JSON.stringify({ test: true }));
-        const Joki = createJoki();
-
-        const serv = createFetchService("testFetchService", Joki, {
-            url: "http://localhost/test/url",
-            format: "json",
+        joki.trigger({
+            key: "alpha",
+            body: "bar",
         });
 
-        Joki.once((sender, msg, eventKey) => {
-            expect(msg.test).toBe(true);
-            done();
-        }, "FETCH-GET");
+        unsubscribe();
 
-        serv.get({ urlExtension: "/myext" })
-            .then(results => {
-                expect(fetch.mock.calls[0][0]).toBe("http://localhost/test/url/myext");
-                expect(fetch.mock.calls[0][1].method).toBe("GET");
-                expect(fetch.mock.calls[0][1].header).toBe(undefined);
-                
-                expect(results.test).toBe(true);
-            })
-            .catch(err => {
-                console.log("ERROR", err);
-            });
-
-        expect.assertions(5);
-    });
-
-    it("Fetch Post Promise", done => {
-        fetch.mockResponseOnce(JSON.stringify({ test: true }));
-        const Joki = createJoki();
-
-        const serv = createFetchService("testFetchService", Joki, {
-            url: "http://localhost/test/url",
-            format: "json",
-        });
-
-        Joki.once((sender, msg, eventKey) => {
-            // THIS PART SHOULD NEVER RUN WHEN triggerEvent IS SET TO TRUE
-            expect(msg).toEqual({ test: true });
-        }, "FETCH-POST");
-
-        serv.post({ body: { myData: true }, triggerEvent: false, header: { auth: true} }).then(res => {
-            expect(fetch.mock.calls[0][1].method).toBe("POST");
-            expect(fetch.mock.calls[0][1].body).toEqual({ myData: true });
-            expect(fetch.mock.calls[0][1].header).toEqual({ auth: true });
-            expect(res).toEqual({test: true});
-            done();
-        });
+        expect(joki.listeners().length).toBe(0);
 
         expect.assertions(4);
     });
 
-    it("Send get Request via Bus", done => {
-        fetch.mockResponseOnce(JSON.stringify({ test: true }));
-        const Joki = createJoki();
+    it("Create a service and trigger it", done => {
+        const joki = createJoki();
 
-        const serv = createFetchService("testFetchService", Joki, {
-            url: "http://localhost/test/url",
-            format: "json",
-            getEventKey: "BUS-FETCH-GET",
+        const serv = event => {
+            expect(event.key).toBe("test-event");
+            expect(event.to).toBe("testService");
+            done();
+        };
+
+        joki.addService({
+            id: "testService",
+            fn: serv,
         });
 
-        const responseId = "MyNiceGetRequest";
+        joki.trigger({
+            to: "testService",
+            key: "test-event",
+        });
+    });
 
-        Joki.once((sender, msg, eventKey) => {
-            expect(msg.test).toBe(true);
-            expect(sender).toBe("testFetchService");
-            expect(eventKey).toBe(responseId);
-            expect(fetch.mock.calls[0][1].body).toEqual({bodydata: true});
-            expect(fetch.mock.calls[0][1].header).toEqual({auth: true});
-            done();
-        }, responseId);
+    it("Ask from services", () => {
+        const joki = createJoki();
 
-        Joki.send(
-            "test-suite",
-            {
-                responseEventKey: responseId,
-                body: { bodydata: true },
-                header: { auth: true }
+        const serv = event => {
+            if (event.key === "state" && event.to === "testService") {
+                return { foo: "bar", private: true };
+            }
+
+            if (event.key === "state") {
+                return { foo: "bar", private: false };
+            }
+        };
+
+        joki.addService({ id: "testService", fn: serv });
+
+        joki.addService({ id: "beta", fn: serv });
+
+        expect(
+            joki.ask({
+                to: "testService",
+                key: "state",
+            })
+        ).resolves.toEqual({ testService: { foo: "bar", private: true } });
+
+        expect(
+            joki.ask({
+                to: true,
+                key: "state",
+            })
+        ).resolves.toEqual({
+            testService: { foo: "bar", private: false },
+            beta: { foo: "bar", private: false },
+        });
+    });
+
+    it("Ask from listeners", () => {
+        const joki = createJoki();
+
+        joki.on({ key: "alpha", fn: event => (event.body !== undefined ? event.body : "No body found") });
+        joki.on({ key: "beta", fn: event => (event.body !== undefined ? event.body : "No body found") });
+
+        expect(
+            joki.ask({
+                key: "alpha",
+            })
+        ).resolves.toEqual(["No body found"]);
+
+        joki.on({ key: "alpha", fn: event => (event.body !== undefined ? event.body : "No body found") });
+
+        expect(
+            joki.ask({
+                key: "alpha",
+                body: "reply",
+            })
+        ).resolves.toEqual(["reply", "reply"]);
+    });
+
+    it("Make a synchronous ask", () => {
+        const joki = createJoki();
+
+        joki.on({ key: "alpha", fn: event => (event.body !== undefined ? event.body : "No body found") });
+
+        expect(
+            joki.ask({
+                key: "alpha",
+                syncAsk: true,
+            })
+        ).toEqual(["No body found"]);
+    });
+
+    it("Only one listener must trigger from service update call", () => {
+        const joki = createJoki({ debug: false });
+
+        const counter = jest.fn();
+
+        joki.on({
+            from: "service",
+            fn: event => {
+                expect(event.body).toBe("update");
+                counter();
             },
-            "BUS-FETCH-GET"
-        );
+        });
+
+        joki.on({
+            key: "service",
+            fn: event => {
+                expect(event.body).toBe("update");
+                counter();
+            },
+        });
+
+        joki.trigger({
+            from: "service",
+            body: "update",
+        });
+
+        expect(counter).toBeCalledTimes(1);
+        expect.assertions(2);
+    });
+
+    it("Separation of from and key", () => {
+        const joki = createJoki({ debug: false });
+
+        const counter = jest.fn();
+
+        const list1 = joki.on({
+            key: "dostuff",
+            fn: event => {
+                expect(event.key).toBe("dostuff");
+                expect(["Hello", "World"]).toContain(event.body);
+                counter();
+            },
+        });
+
+        const list2 = joki.on({
+            key: "dostuff",
+            from: "service",
+            fn: event => {
+                expect(event.body).toBe("World");
+                expect(event.from).toBe("service");
+                expect(event.key).toBe("dostuff");
+                counter();
+            },
+        });
+
+        const list3 = joki.on({
+            from: "service",
+            fn: event => {
+                switch (event.key) {
+                    case "dostuff":
+                        expect(event.from).toBe("service");
+                        expect(event.key).toBe("dostuff");
+                        expect(event.body).toBe("World");
+                        counter();
+                        break;
+                    default:
+                        expect(event.from).toBe("service");
+                        expect(event.body).toBe("Again");
+                        counter();
+                        break;
+                }
+            },
+        });
+
+        expect(joki.listeners()).toEqual([
+            { from: undefined, key: "dostuff" },
+            { from: "service", key: "dostuff" },
+            { from: "service", key: undefined },
+        ]);
+
+        joki.trigger({
+            key: "dostuff",
+            body: "Hello",
+        });
+
+        joki.trigger({
+            key: "dostuff",
+            from: "service",
+            body: "World",
+        });
+
+        joki.trigger({
+            from: "service",
+            body: "Again",
+        });
+
+        expect(counter).toBeCalledTimes(5);
+
+        expect.assertions(14);
+    });
+
+    it("Check service initialization", () => {
+        const joki = createJoki();
+
+        const initAlpha = jest.fn();
+        const initBeta = jest.fn();
+
+        joki.addService({
+            id: "alpha",
+            fn: event => {
+                switch (event.key) {
+                    case "initialize":
+                        initAlpha();
+                        break;
+                    default:
+                        break;
+                }
+            },
+        });
+
+        joki.initServices({});
+        joki.initServices({});
+
+        joki.addService({
+            id: "beta",
+            fn: event => {
+                switch (event.key) {
+                    case "initialize":
+                        initBeta();
+                        break;
+                    default:
+                        break;
+                }
+            },
+        });
+
+        expect(initAlpha).toBeCalledTimes(1);
+        expect(initBeta).toBeCalledTimes(1);
+    });
+
+    it("broadcast function must require from and key parameters and trigger all registered servies", () => {
+        const joki = createJoki({ debug: false });
+
+        const broadcastSuccess = jest.fn();
+        const broadcastFailure = jest.fn();
+
+        joki.addService({
+            id: "alpha",
+            fn: event => {
+                switch (event.key) {
+                    case "broadcastEvent":
+                        if (event.body.success === true) {
+                            broadcastSuccess();
+                        }
+                        if (event.body.success === false) {
+                            broadcastFailure();
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            },
+        });
+
+        joki.addService({
+            id: "beta",
+            fn: event => {
+                switch (event.key) {
+                    case "broadcastEvent":
+                        if (event.body.success === true) {
+                            broadcastSuccess();
+                        }
+                        if (event.body.success === false) {
+                            broadcastFailure();
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            },
+        });
+
+        joki.on({
+            key: "broadcastEvent",
+            fn: event => {
+                expect(event.broadcast).toBeTruthy();
+                if (event.body.success === true) {
+                    broadcastSuccess();
+                }
+                if (event.body.success === false) {
+                    broadcastFailure();
+                }
+            },
+        });
+
+        joki.on({
+            key: "broadcastEvent",
+            from: "another-source",
+            fn: event => {
+                broadcastFailure();
+            },
+        });
+
+        joki.broadcast({
+            key: "broadcastEvent",
+            body: {
+                text: "Should not trigger anything as the from is missing",
+                success: false,
+            },
+        });
+
+        joki.broadcast({
+            key: "broadcastEvent",
+            from: "test-suite",
+            servicesOnly: true,
+            body: {
+                text: "Should trigger succcess on services",
+                success: true,
+            },
+        });
+
+        joki.broadcast({
+            key: "broadcastEvent",
+            from: "test-suite",
+            body: {
+                text: "Should trigger succcess on both services and listeners",
+                success: true,
+            },
+        });
+
+        expect(broadcastFailure).toBeCalledTimes(0);
+        expect(broadcastSuccess).toBeCalledTimes(5);
     });
 });

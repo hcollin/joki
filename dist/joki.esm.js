@@ -1,589 +1,358 @@
-import { useState, useEffect } from 'react';
+/**
+ * Create a new Joki event listener.
+ *
+ *
+ * @param {Object} [initialOptions={}]
+ * @param {Boolean} initialOptions.debug - If set to true will write a LOT of debug data to console.
+ * @param {Boolean} initialOptions.noInit - If set to true no initialization events are sent to services
+ * @returns {Object} The Joki object that handles the services and events.
+ */
+function createJoki(initialOptions = {}) {
+    // All the options are here
+    const _options = initialOptions;
 
-function createJoki(options = {}) {
-    let subIdCounter = 0;
+    // All services are store to this map
+    const _services = new Map();
 
-    // The key generator for services can be overwritten with options
-    const keyGenerator =
-        options.keyGenerator !== undefined && typeof options.keyGenerator === "function"
-            ? options.keyGenerator 
-            : keyType => {
-                  return keyType;
+    // All listeners are store to this map
+    const _listeners = new Map();
+
+    // This counter is used to generate unique ids for listeners.
+    // TODO: Make this more robust and preferably something that can be changed with options.
+    let idCounter = 0;
+
+    // Contains internal states that changes the logic
+    const _statuses = {
+        firstInitDone: _options.noInit !== undefined ? _options.noInit : false,
     };
-
-    
-    // All subscribed services are store here.
-    let services = [];
-
-    // Listeners are here
-    const listeners = {
-        all: [],
-    };
-
-    // LIstener removing functions are stored here based on their id.
-    const listenerRemovers = {};
-
-    let debugMode = options.debugMode !== undefined ? options.debugMode : false;
 
     /**
-     * Services in the Joki are data storages that usually contain a state and manage their internal state
-     * They send updates to the Joki, when their data changes. They can also provide apis
+     * Triggers an event with the expectation of a return value
      *
-     * @param {string|null} serviceId
-     * @param {}
+     * @param {Object} event - Joki Event Object
+     * @param {String} event.key - The event key to be triggered
+     * @param {String} event.from - Who is sending this event
+     * @param {String} event.to - Direct this event to this serviceId
+     * @param {String} event.body - The data sent with this event
+     * @param {Boolean} [event.syncAsk=false] - If set to true will make a synchronous call, otherwise will return a promise
+     * @returns {(Promise|Object|Array)} - Returns an array or object depending if the event had property 'to' set or not. Promise will resolve with return value as an argument.
      */
-    function subscribeServiceProvider(serviceId = null, currentStateCallback = null, actionsCallback = null) {
-        const id = serviceId !== null ? serviceId : keyGenerator(`subscriber-${subIdCounter++}`);
-        services.push({
-            id: id,
-            getState: currentStateCallback,
-            action: actionsCallback,
+    function ask(event) {
+        _txt(`Ask from ${event.from} about ${event.key}`);
+
+        if (event.syncAsk === true) {
+            return trigger(event);
+        }
+
+        return new Promise((resolve, reject) => {
+            try {
+                const replies = trigger(event);
+                resolve(replies);
+            } catch (err) {
+                reject(err);
+            }
         });
-        txt(`New service subscribed as ${serviceId} ${services.length}.`);
-        return id;
-    }
-
-    function unSubscribeServiceProvider(subscriberId) {
-        services = services.filter(s => s.id !== subscriberId);
-        txt(`Service ${serviceId} unsubscribed .`);
-    }
-
-
-    function listSubscribers() {
-        const subs = services.map(sub => {return {id: sub.id};});
-        return subs;
     }
 
     /**
-     * Send a message to the Joki
-     * @param {*} msg
-     * @param {*} options
+     * Add a subscriber to Joki
+     *
+     * @param {Object} event - The subscriber object used to listen for triggered events.
+     * @param {(String|Array)} key - This listener is triggered by events with this key (or keys if provided in array)
+     * @param {String} from - Triggered by events sent by this source (usually serviceId)
+     * @param {Function} fn - Handler function that is triggered. This function takes the event object that triggers it as an argument.
+     * @returns {Function} - Returns an anonymous function that when called removes the listener subscription from Joki.
      */
-    function sendMessage(sender = null, msg, eventKey = null) {
-        txt(`${sender} sends a message with eventKey ${eventKey}.`);
-        if (eventKey !== null) {
-            if (listeners[eventKey] === undefined) {
-                listeners[eventKey] = [];
+    function on(event) {
+        // If keys is an array, each key will have a separate listener
+        if (Array.isArray(event.key)) {
+            _txt(`event.key is an Array with ${event.key.length} keys in it`);
+            const stops = event.key.map(k => {
+                return on({ ...event, key: k });
+            });
+            return () => {
+                stops.forEach(off => {
+                    off();
+                });
+            };
+        }
+
+        const onId = `on-${idCounter++}`;
+
+        _txt(
+            `New listener created for with ${event.key ? "key " + event.key : ""} ${
+                event.from ? "from: " + event.from : ""
+            } `
+        );
+        _listeners.set(onId, event);
+
+        return () => {
+            _off(onId);
+        };
+    }
+
+    /**
+     * Send an event to the Joki
+     *
+     * NOTICE! Even though trigger returns values, they should not be used. If the return values are needed us the function ask.
+     *
+     * @param {Object} event - Joki Event Object
+     * @param {String} event.key - The event key to be triggered
+     * @param {String} event.from - Who is sending this event
+     * @param {String} event.to - Direct this event to this serviceId
+     * @param {String} event.body - The data sent with this event
+     * @returns {(Object|Array)} Returns an array of replies from the listeners or and Object of replies from services if the event contained 'to' property
+     */
+    function trigger(event) {
+        _txt(
+            `Trigger an event.\n\tfrom: ${event.from}\n\tto: ${event.to}\n\tkey: ${event.key}\n\tbroadcast: ${
+                event.broadcast === true ? "yes" : "no"
+            }\n\tbody length: ${event.body !== undefined ? event.body : "N/A"}`
+        );
+        // Only trigger a service
+        if (event.to !== undefined) {
+            const serviceIds =
+                typeof event.to === "string"
+                    ? [event.to]
+                    : Array.isArray(event.to)
+                    ? event.to
+                    : event.to === true
+                    ? Array.from(_services.keys())
+                    : null;
+            if (serviceIds === null) {
+                throw "Event parameter must be a string or an array of strings";
             }
-            listeners[eventKey].forEach(listener => {
-                listener.fn(sender, msg, eventKey);
+            const replies = {};
+            serviceIds.forEach(id => {
+                if (_services.has(id)) {
+                    replies[id] = _services.get(id).fn(event);
+                }
+            });
+            return replies;
+        }
+
+        const replies = [];
+        _listeners.forEach(on => {
+            _txt(`Listener ${on.from} ${on.key} ${on.to}`);
+            let match = true;
+            // Not really working yet.
+
+            if (on.from !== undefined && event.from !== on.from) {
+                match = false;
+            }
+
+            if (on.key !== undefined && event.key !== on.key) {
+                match = false;
+            }
+
+            _txt(
+                `\nON: F:${on.from} K:${on.key} T:${on.to}\nEV: F:${event.from} K:${event.key} T:${
+                    event.to
+                }\n\tMatch? ${match ? "YES" : "NO"}\n`
+            );
+
+            if (match) {
+                replies.push(on.fn(event));
+            }
+        });
+
+        return replies;
+    }
+
+    /**
+     * Send an event to all services currently registered and listeners with listeners for this broadcast eventKey.
+     *
+     * This function should be used when a system wide event needs to be processed (like logout, initialize etc.).
+     * Please be careful of the keys used to trigger broadcast events so that the services do not confuse these
+     * general events to their specific events. A broadcast key is added to the event and set to true that can be
+     * checked in the service if necessary.
+     *
+     * Broadcast events NEVER return anything. If a response for broadcast is expected a separate listener must be
+     * created and triggered from the services by hand. The reason for this is to minimize infinite loop situations.
+     *
+     * The from field is a mandatory for broadcast events.
+     *
+     * @param {Object} event - Joki Event Object
+     * @param {String} event.key - The event key to be triggered
+     * @param {String} event.from - Who is sending this event. Mandatory in broadcasts.
+     * @param {Boolean} event.servicesOnly - If set to true will not trigger listeners outside services
+     * @param {String} event.body - The data sent with this event
+     */
+    function broadcast(event) {
+        if (event.key === undefined || event.key === null || typeof event.key !== "string") {
+            _txt(`Broadcast from ${event.from} event missing the key parameter.`);
+            return;
+        }
+        if (event.from === undefined || event.from === null || typeof event.from !== "string") {
+            _txt(`Broadcast with key ${event.key} event missing the from parameter.`);
+            return;
+        }
+        _txt(
+            `Broadcast event from ${event.from} to key ${event.key} ${
+                event.servicesOnly === true ? "to services only" : ""
+            }`
+        );
+        event.broadcast = true;
+        _services.forEach(service => {
+            service.fn(event);
+        });
+
+        if (event.servicesOnly !== true) {
+            _listeners.forEach(on => {
+                if (on.key === event.key && (on.from === undefined || on.from === event.from)) {
+                    on.fn(event);
+                }
             });
         }
-        listeners.all.forEach(listener => {
-            listener.fn(sender, msg, eventKey);
-        });
-        services.forEach(sub => {
-            if(typeof sub.action === "function" && sub.id !== sender) {
-                sub.action(sender, msg, eventKey);
-            }
+    }
+
+    /**
+     * List of the current listeners registered
+     * @returns {Array} - Array contains one object for each registered listener with arguments key and from
+     */
+    function listeners() {
+        return Array.from(_listeners.values()).map(on => {
+            return {
+                key: on.key,
+                from: on.from,
+            };
         });
     }
 
-    function sendMessageToSubscriber(subscriberId, sender, msg, eventKey) {
-        txt(`${sender} sends a message to service ${subscriberId} with event key ${eventKey}`);
-        const subscriber = services.find(sub => sub.id === subscriberId);
-        if(typeof subscriber.action === "function" && subscriber.id !== sender) {
-            subscriber.action(sender, msg, eventKey);
+    /**
+     * Get and set options for Joki Instance
+     * @param {String} key - The option to be changed
+     * @param {*} newValue - The value to be set for the value
+     * @returns {*} Either the current option of the provided key or if not provided an Object with all key/value pairs currently set
+     */
+    function options(key = null, newValue = undefined) {
+        if (key == null && newValue == undefined) {
+            return { ..._options };
+        }
+
+        if (typeof key === "string" && newValue === undefined) {
+            return _options[key];
+        }
+
+        if (typeof key === "string" && newValue !== undefined) {
+            _options[key] = newValue;
         }
     }
 
     /**
-     * Register a listener for messages
+     * Add a new service to Joki
+     * @param {Object} service - Parameters for this service
+     * @param {String} service.id - Unique ID for this service that can be used in events.Array
+     * @param {Function} service.fn - The incoming event handler for this service
      */
-    function listenMessages(listenerFn, eventKey = "all", id = null) {
-        const listenerId = id !== null ? id : keyGenerator(`listener-${subIdCounter++}`);
-        txt(`New listener with id ${listenerId} registered.`);
-        if (listeners[eventKey] === undefined) {
-            listeners[eventKey] = [];
+    function addService(service) {
+        if (_services.has(service.id)) {
+            throw `Service with ${service.id} already exists`;
         }
-        listeners[eventKey].push({
-            id: listenerId,
-            fn: listenerFn,
-        });
-        
-        listenerRemovers[listenerId] = () => {
-            listeners[eventKey] = listeners[eventKey].filter(l => l.id !== listenerId);
-        };
-        return listenerId;
-    }
-
-    function oneTimeListener(listenerFn, eventKey, id=null) {
-        if(eventKey === undefined) {
-            throw "When listening one time event an eventKey is mandatory";
+        if (service.fn === undefined || typeof service.fn !== "function") {
+            throw `Service must have a messageHandler function stored to parameter 'fn'`;
         }
-        txt(`Listening for event ${eventKey} once`);
-        const lid = listenMessages((sender, msg, eventKey) => {
-            const data = listenerFn(sender, msg, eventKey);
-            clearListener(lid);
-            return data;
-        }, eventKey, id);
-    }
+        if (service.id === undefined || typeof service.id !== "string") {
+            throw `Service must have a unique id stored to parameter 'id'`;
+        }
 
-    function clearListener(listenerId) {
-        if (listenerRemovers[listenerId] !== undefined) {
-            listenerRemovers[listenerId]();
-            delete listenerRemovers[listenerId];
-            txt(`Listener with id ${listenerId} removed.`);
+        service.initialized = _options.noInit === true;
+        _txt(`Added a new service with id ${service.id}`);
+        // console.log("JOKI:service:added", service.id);
+        _services.set(service.id, service);
+
+        if (_statuses.firstInitDone === true) {
+            _initializeService(service.id);
         }
     }
 
-    function getCurrentStateOfService(serviceId) {
-        const service = services.find(sub => sub.id === serviceId);
-        txt(`Get current state for service ${serviceId}`);
-        if (service === undefined) {
-            console.error("Cannot get a state for unknown service", serviceId);
-            return false;
-        }
-        return service.getState();
-    }
-
-    function serviceHasUpdatedItsState(serviceId) {
-        sendMessage(serviceId, "UPDATE", serviceId);
-    }
-
-    function txt(msg) {
-        if (debugMode) {
-            console.debug(`Joki:Debug: ${msg}`);
+    /**
+     * Remove service from Joki
+     * @param {String} serviceId - The id of the service to be removed
+     */
+    function removeService(serviceId) {
+        if (_services.has(serviceId)) {
+            _txt(`Removed a service with id ${service.id}`);
+            _services.delete(serviceId);
         }
     }
 
-    function setDebugMode(setTo = null) {
-        if (setTo === null) {
-            debugMode = !debugMode;
-        } else {
-            debugMode = setTo;
+    /**
+     * Return an array of serviceIds registered to Joki
+     * @returns {Array}
+     */
+    function listServices() {
+        return Array.from(_services.keys());
+    }
+
+    /**
+     * Send initialize event to all registered services, if it hasn't been done yet.
+     *
+     * @param {Object} [data={}] - Data Object included into the initialization body
+     */
+    function initServices(data = {}) {
+        if (_statuses.firstInitDone === false) {
+            _services.forEach((service, serviceId) => {
+                _initializeService(serviceId, data);
+            });
+            _statuses.firstInitDone = true;
         }
     }
 
-    function getListeners(key = null) {
-        if (key === null) return listeners;
-        return listeners[key];
+    function _initializeService(serviceId, data = {}) {
+        if (_services.has(serviceId)) {
+            const service = _services.get(serviceId);
+            if (service.initialized !== true) {
+                service.initialized = true;
+                service.fn({
+                    from: "JOKI",
+                    key: "initialize",
+                    body: data,
+                });
+            }
+        }
     }
 
-    function getRegisteredEventKeys() {
-        const eventKeys = Object.keys(listeners);
-        return eventKeys;
+    /**
+     * Remove a listener with Id
+     * @param {String} onId
+     * @private
+     */
+    function _off(onId) {
+        if (_listeners.has(onId)) {
+            _listeners.delete(onId);
+            _txt(`Removed listener ${onId}`);
+        }
     }
 
-    function confirmThatThisAJokiInstance() {
-        return true;
+    /**
+     * Writes a message to the console if the option.debug is set to true
+     *
+     * @param {String} msg - The message to be written to the console
+     * @param {String} [subcategory="Debug"] - The Debug subCategory can be replaced with something else.
+     */
+    function _txt(msg, subcategory = "Debug") {
+        if (_options.debug === true) {
+            console.debug(`Joki:${subcategory}: ${msg}`);
+        }
     }
 
     return {
-        subscribe: subscribeServiceProvider,
-        unsubscribe: unSubscribeServiceProvider,
-        services: listSubscribers,
-        getService: getCurrentStateOfService,
-        serviceUpdated: serviceHasUpdatedItsState,
+        ask,
+        on,
+        trigger,
+        listeners,
+        broadcast,
 
-        send: sendMessage,
-        action: sendMessageToSubscriber,
-        
-        listen: listenMessages,
-        once: oneTimeListener,
-        stop: clearListener,
-        
-        debug: setDebugMode,
-        getEventKeys: getRegisteredEventKeys,
-        
-        _getListeners: getListeners,
-        _isJoki: confirmThatThisAJokiInstance
+        addService,
+        removeService,
+        listServices,
+        initServices,
+
+        options,
     };
 }
 
-function connectJoki(id, requestStateHandler=null, actionHandler=null) {
+const identifier = "0.9.0";
 
-    let jokiInstance = null;
-    const serviceId = id;
-    const _stateHandler = requestStateHandler !== null ? requestStateHandler : () => null;
-    const _actionHandler = actionHandler !== null ? actionHandler : () => null; 
-
-    let debugMode = false;
-
-    function setJokiInstance(joki) {    
-        jokiInstance = joki;
-        txt(`Subscribe connection ${serviceId}`);
-        return jokiInstance.subscribe(serviceId, _stateHandler, _actionHandler);
-    }
-
-    function removeJokiConnection(bus) {
-        txt(`Remove Subscribtion ${serviceId}`);
-        if(jokiInstance !== null) {
-            jokiInstance.unSubscribeServiceProvider(serviceId);
-            jokiInstance = null;
-        }
-    }
-
-    function sendMessageToJoki(msg, eventKey=null) {
-        txt(`Send message with key ${eventKey} by ${serviceId}`);
-        jokiInstance.send(serviceId, msg, eventKey);
-    }
-
-    function addJokiEventListener(handlerFn, eventKey=null) {
-        const listenerId = jokiInstance.listen(handlerFn, eventKey);
-        return () => {
-            jokiInstance.stop(listenerId);
-        }
-    }
-
-    function broadcastServiceStateUpdate() {
-        jokiInstance.serviceUpdated(serviceId);
-    }
-
-    function setDebugMode(setTo=null) {
-        if(setTo === null) {
-            debugMode = !debugMode;
-        } else {
-            debugMode = setTo;
-        }
-    }
-
-    function txt(msg) {
-        if (debugMode) {
-            console.debug(`JokiConnection:Debug: ${msg}`);
-        }
-    }
-
-
-    txt(`Connection established with serviceId ${serviceId}`);
-    return {
-        set: setJokiInstance,
-        clear: removeJokiConnection,
-        send: sendMessageToJoki,
-        listen: addJokiEventListener,
-        debug: setDebugMode,
-        updated: broadcastServiceStateUpdate
-    }
-
-}
-
-class ClassService {
-    
-    constructor(options) {
-
-        if (options.serviceId === undefined) {
-            console.error("The ClassService constructor requires an option with key unique serviceId.");
-            throw "The ClassService constructor requires an option with key unique serviceId.";
-        }
-
-        // if (options.joki === undefined) {
-        //     console.error(
-        //         "The ClassService constructor requires an option with key joki providing the Joki instance it uses."
-        //     );
-        //     throw "The ClassService constructor requires an option with key joki providing the Joki instance it uses.";
-        // }
-
-        const { serviceId, joki } = options;
-        this._serviceId = serviceId;
-        this.joki = connectJoki(this._serviceId, this.getState.bind(this), this.messageHandler.bind(this));
-        
-        if(options.joki !== undefined ) {
-            this.connectToJoki(options.joki);
-        }
-
-    }
-
-    connectToJoki(jokiInstance) {
-        if (jokiInstance._isJoki() !== true) {
-            console.error("The Joki provided is not a valid Joki Instance");
-            throw("The Joki provided is not a valid Joki instance");
-        }
-        this.joki.set(jokiInstance);
-    }
-
-    getState() {
-        throw "This function must be overridden in the service class inheriting from the ClassService. This function must return the current state of the service.";
-    }
-
-    messageHandler(sender, msg, eventKey) {
-        throw "This function must be overridden in the service class inheriting from the ClassService. This function handles incoming messages from the Joki.";
-    }
-
-    sendToJoki(msg, eventKey = null) {
-        if (this.joki !== null) {
-            this.joki.send(msg, eventKey);
-        }
-        
-    }
-}
-
-function createReducerService(id, jokiInstance, initState={}, reducerFunction=null) {
-
-    const serviceId = id;
-    let data = initState;
-    const joki = connectJoki(serviceId, getState, handleMessage);
-
-    if(jokiInstance._isJoki() !== true) {
-        throw(jokiInstance);
-    }
-
-    joki.set(jokiInstance);
-
-    if(typeof reducerFunction !== "function") {
-        throw("reducerFunction must be a function with two arguments: state and action");
-    }
-
-    const reducer = reducerFunction;
-
-    function getState() {
-        return {...data};
-    }
-
-    function handleMessage(sender, msg, eventKey) {
-        reducerRunner({type: eventKey, data: msg});
-    }
-
-    function reducerRunner(action) {
-        
-        const newData = reducer(data, action);
-        if(newData !== undefined) {
-            data = newData;
-            joki.updated();
-        }
-    }
-
-    return {
-        getState: getState,
-        action: reducerRunner,
-    }
-}
-
-function createFetchService(serviceId, jokiInstance, options) {
-    const { url, format, headers, ...rest } = Object.assign(
-        {},
-        {
-            format: "json",
-            getEventKey: `${serviceId}-GET`,
-            postEventKey: `${serviceId}-GET`,
-            putEventKey: `${serviceId}-PUT`,
-            deleteEventKey: `${serviceId}-DELETE`,
-            headers: {},
-        },
-        options
-    );
-
-    const joki = connectJoki(serviceId, getState, handleMessage);
-    joki.set(jokiInstance);
-
-    const callHistory = [];
-
-    function getState() {
-        if (callHistory.length > 0) {
-            return callHistory[0];
-        }
-        return {};
-    }
-
-    function handleMessage(sender, msg, eventKey) {
-        // const { params, urlExtension, body, responseEventKey } = msg;
-
-        switch (eventKey) {
-            case rest.getEventKey:
-                sendFetch(msg, "GET");
-                break;
-            case rest.postEventKey:
-                sendFetch(msg, "POST");
-                break;
-            case rest.putEventKey:
-                sendFetch(msg, "PUT");
-                // sendFetch(params, urlExtension, data, "PUT", responseEventKey);
-                break;
-            case rest.deleteEventKey:
-                sendFetch(msg, "DELETE");
-                // sendFetch(params, urlExtension, data, "DELETE", responseEventKey);
-                break;
-            default:
-                break;
-        }
-    }
-
-    function _fetch(url, fetchParams = {}) {
-        return new Promise((resolve, reject) => {
-            fetch(url, fetchParams)
-                .then(response => {
-                    switch (format) {
-                        case "json":
-                        default:
-                            resolve(response.json());
-                            break;
-                    }
-                })
-                .catch(err => {
-                    reject(err);
-                });
-        });
-    }
-
-    function _addToCallHistory(results) {
-        callHistory.unshift(results);
-    }
-
-    function sendFetch(options, method = "GET") {
-        const { params, urlExtension, body, header, responseEventKey } = Object.assign(
-            {},
-            { triggerEvent: true, urlExtension: "", body: null, header: null },
-            options
-        );
-
-        const fetchParams = {
-            method: method,
-        };
-
-        if (body !== null) fetchParams.body = body;
-        if (header !== null) fetchParams.header = header;
-
-        const fetchId =
-            responseEventKey !== null ? responseEventKey : `${Date.now()}-${Math.round(Math.random() * 10000)}`;
-
-        _fetch(urlParamParser(url, urlExtension, params), fetchParams).then(results => {
-            receiveResults(results, fetchId);
-        });
-
-        return fetchId;
-    }
-
-    function receiveResults(results, fetchId = null) {
-        _addToCallHistory(results);
-        joki.send(results, fetchId);
-        
-    }
-
-    function urlParamParser(url, urlExtension = "", params) {
-        return `${url}${urlExtension}`;
-    }
-
-    function fetchGET(options) {
-        const { params, urlExtension, body, triggerEvent, header } = Object.assign(
-            {},
-            { triggerEvent: true, urlExtension: "", body: null, header: null },
-            options
-        );
-
-        return new Promise((resolve, reject) => {
-            const fetchParams = {
-                method: "GET",
-            };
-
-            if (body !== null) fetchParams.body = body;
-            if (header !== null) fetchParams.header = header;
-
-            _fetch(urlParamParser(url, urlExtension, params), fetchParams)
-                .then(results => {
-                    if (triggerEvent) {
-                        setTimeout(() => {
-                            receiveResults(results, "FETCH-GET");
-                        }, 0);
-                    }
-
-                    resolve(results);
-                })
-                .catch(err => {
-                    reject(err);
-                });
-        });
-    }
-
-    function fetchPOST(options) {
-        const { params, urlExtension, body, triggerEvent, header } = Object.assign(
-            {},
-            { triggerEvent: true, urlExtension: "", header: null, body: null },
-            options
-        );
-        return new Promise((resolve, reject) => {
-            const fetchParams = {
-                method: "POST",
-            };
-
-            if (body !== null) fetchParams.body = body;
-            if (header !== null) fetchParams.header = header;
-
-            _fetch(urlParamParser(url, urlExtension, params), fetchParams)
-                .then(results => {
-                    if (triggerEvent) {
-                        setTimeout(() => {
-                            receiveResults(results, "FETCH-POST");
-                        }, 0);
-                    }
-                    resolve(results);
-                })
-                .catch(err => {
-                    reject(err);
-                });
-        });
-    }
-
-    return {
-        get: fetchGET,
-        post: fetchPOST,
-    };
-}
-
-function useListenJokiEvent(jokiInstance, options = {}) {
-    const [eventData, updateData] = useState({ data: null, sender: null, eventKey: null });
-
-    const targetEventKey = options.eventKey !== undefined ? options.eventKey : undefined;
-    const targetSender = options.sender !== undefined ? options.sender : undefined;
-
-    useEffect(() => {
-        const listenerId = jokiInstance.listen((sender, msg, eventKey) => {
-            const eventKeyMatch = targetEventKey === undefined || targetEventKey === eventKey ? true : false;
-            const senderMatch = targetSender === undefined || targetSender === sender ? true : false;
-
-            if (eventKeyMatch && senderMatch) {
-                updateData({ data: msg, sender: sender, eventKey: eventKey });
-            }
-        }, targetEventKey);
-
-        return () => {
-            jokiInstance.stop(listenerId);
-        };
-    });
-
-    return [eventData];
-}
-
-function useListenJokiService(jokiInstance, serviceId) {
-    const [data, updateServiceData] = useState({ data: jokiInstance.getService(serviceId), listenerId: null });
-
-    useEffect(() => {
-        if (data.listenerId === null) {
-            const listenerId = jokiInstance.listen((sender, msg, eventKey) => {
-                if (msg === "UPDATE" && eventKey === serviceId) {
-                    const newData = { data: jokiInstance.getService(serviceId), listenerId: data.listenerId };
-                    updateServiceData(newData);
-                }
-            }, serviceId);
-
-            updateServiceData({ data: data.data, listenerId: listenerId });
-        }
-
-        return () => {
-            if (data.listenerId !== null) {
-                jokiInstance.stop(data.listenerId);
-            }
-        };
-    });
-
-    return [data.data];
-}
-
-function trigger(jokiInstance, options = {}) {
-    const sender = options.sender !== undefined ? options.sender : "unknown-react-component";
-    const eventKey = options.eventKey !== undefined ? options.eventKey : "all";
-    const msg = options.data !== undefined ? options.data : options.msg !== undefined ? options.msg : {};
-    const serviceId = options.serviceId !== undefined ? options.serviceId : null;
-    if (serviceId !== null) {
-        return sendToService(jokiInstance, serviceId, sender, msg, eventKey);
-    }
-    return sendToBus(jokiInstance, sender, msg, eventKey);
-}
-
-function sendToBus(jokiInstance, sender, msg, eventKey) {
-    jokiInstance.send(sender, msg, eventKey);
-}
-
-function sendToService(jokiInstance, serviceId, sender, msg, eventKey) {
-    jokiInstance.action(serviceId, sender, msg, eventKey);
-}
-
-export { createJoki, connectJoki, ClassService, createReducerService, createFetchService, useListenJokiEvent, useListenJokiEvent as useEvent, useListenJokiService, useListenJokiService as useService, trigger };
+export { createJoki, identifier };
