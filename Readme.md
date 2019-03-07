@@ -1,4 +1,4 @@
-# Joki ![GitHub license](https://img.shields.io/github/license/:user/:repo.svg) ![Github version](https://img.shields.io/github/package-json/v/:user/:repo.svg)
+# Joki ![GitHub license](https://img.shields.io/github/package-json/license/hcollin/joki.svg) ![Github version](https://img.shields.io/github/package-json/v/hcollin/joki.svg)
 
 Joki is an publish-subscriber and service provider library. Reasons for writing this can be found at the of the this Readme file from the chapter **Why?!**.
 
