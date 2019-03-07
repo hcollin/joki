@@ -61,9 +61,9 @@
         }
 
         /**
-         * Subscribe a listener to Joki
+         * Add a subscriber to Joki
          *
-         * @param {Object} event - The listener object used to listen for triggered events.
+         * @param {Object} event - The subscriber object used to listen for triggered events.
          * @param {(String|Array)} key - This listener is triggered by events with this key (or keys if provided in array)
          * @param {String} from - Triggered by events sent by this source (usually serviceId)
          * @param {Function} fn - Handler function that is triggered. This function takes the event object that triggers it as an argument.
@@ -182,7 +182,6 @@
          * @param {String} event.key - The event key to be triggered
          * @param {String} event.from - Who is sending this event. Mandatory in broadcasts.
          * @param {Boolean} event.servicesOnly - If set to true will not trigger listeners outside services
-         * @param {String} event.to - Direct this event to this serviceId
          * @param {String} event.body - The data sent with this event
          */
         function broadcast(event) {
@@ -360,15 +359,7 @@
         };
     }
 
-    // import connectJoki from "./joki/connectJoki";
-
-    // import ClassService from "./services/ClassService";
-    // import createReducerService from "./services/reducerService";
-    // import createFetchService from "./services/fetchService";
-
-    // import { useListenJokiEvent, useListenJokiService, trigger } from "./react/hooks";
-
-    const identifier = "0.6.2";
+    const identifier = "0.9.0";
 
     exports.createJoki = createJoki;
     exports.identifier = identifier;
