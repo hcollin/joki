@@ -350,5 +350,7 @@ export default function createJoki(initialOptions = {}) {
         initServices,
 
         options,
+
+        isJokiInstance: true
     };
 }
