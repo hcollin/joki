@@ -247,13 +247,13 @@ export default function createJoki(initialOptions = {}) {
      */
     function addService(service) {
         if (_services.has(service.id)) {
-            throw `Service with ${service.id} already exists`;
+            throw new Error(`Service with ${service.id} already exists`);
         }
         if (service.fn === undefined || typeof service.fn !== "function") {
-            throw `Service must have a messageHandler function stored to parameter 'fn'`;
+            throw new TypeError(`Service must have a messageHandler function stored to parameter 'fn'`);
         }
         if (service.id === undefined || typeof service.id !== "string") {
-            throw `Service must have a unique id stored to parameter 'id'`;
+            throw new TypeError(`Service must have a unique id stored to parameter 'id'`);
         }
 
         service.initialized = _options.noInit === true;
