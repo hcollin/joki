@@ -8,8 +8,8 @@ Joki has no runtime dependencies, but it should be used from within babel compil
 
 Joki is currently used in production, but is still considered to be in early stages of development. So use at your own risk. =)
 
-# Installation
 
+# Installation
 
 By using npm
 
@@ -282,6 +282,34 @@ get: `const optionValue = jokiInstance.options(optionKeyString);`
 set: `jokiInstance.options(optionKeyString, newValue);`
 
 List, get or set option values for the current Joki instance.
+
+# Service Factory: createMockService
+
+`createMockService` factory function is used to create a simple services for Joki. It's main purpose is to provide a simple tool for mocking services with simple responses to events in tests. 
+
+**NOTICE!** This function may be renamed to something like `createSimpleService` or `createStaticService` if it is found to be good enough for those purposes. Although at the moment the plan is to create separate functions for these functionalities.
+
+## Usage
+
+Example:
+```javascript
+import { createJoki, createMockService } from 'joki';
+
+const jokiInstance = createJoki();
+createMockService(jokiInstance, "MockService", {
+    "getDetails": { id: "id1", name: "Name"},
+    "getList": [{id: "id1", name: "Name"}],
+    "isValid": (event) => event.body === true,
+    "send": (event) => { joki.trigger({key: "hey", from: "MockService", body: "foobar"})}
+});
+```
+The 'createMockService' takes 3 arguments. 
+
+1. jokiInstance - This must be a valid instance of Joki.
+2. serviceId - Service Id must a be a unique string
+3. eventHandlers - This is an object where keys equal to event keys and the value is either returned as is or it can be a function.
+
+If the eventHandlers value is a function that returns a value or static value a ServiceUpdate function is sent by the Mock Service.
 
 
 # Why?!
