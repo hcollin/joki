@@ -20,20 +20,121 @@ body {
     font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
 }
 
+div.background {
+    background-color: #26A;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    z-index: 10;
+}
+
+div.background div.part-1 {
+    background-color: white;
+    position: absolute;
+    top: 0;
+    width: calc(50% - 20px);
+    left: 0;
+    height: 50%;
+    border-bottom-right-radius: 200px calc(100% - 100px);
+    border-top-right-radius: 25px 100px;
+    
+}
+div.background div.part-2 {
+    background-color: white;
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: calc(50% - 10px);
+    height: 50%;
+    border-bottom-left-radius: 200px 150px;
+    border-top-left-radius: 25px 200px;
+    
+}
+div.background div.part-3 {
+    background-color: white;
+    position: absolute;
+    bottom: 0;
+    width: 50%;
+    left: 0;
+    height: 50%;
+    border-top-right-radius: 200px 150px;
+    border-bottom-right-radius: 25px 200px;
+}
+div.background div.part-4 {
+    background-color: white;
+    position: absolute;
+    bottom: 0;
+    width: calc(50% - 20px);
+    right: 0;
+    height: 50%;
+    border-top-left-radius: 200px calc(100% - 100px);
+    border-bottom-left-radius: 25px 100px;
+}
+
+
+div.content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 100%;
+    
+
+    z-index: 20;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+div.content p.github {
+    position: absolute;
+    bottom: 2rem;
+    right: 2rem;
+
+}
+
 h1 {
     font-size: 5rem;
     text-transform: uppercase;
     letter-spacing: 0.2rem;
     padding: 1rem;
-
+    
     color: #26A;
+    text-shadow: 2px 2px 2px white, -2px -2px 2px white;
 }
 
 h2 {
+    position: relative;
     font-size: 2rem;
     letter-spacing: 0.1rem;
     padding: 0.25rem 1rem;
+    text-align: center;
 
-    border-top: solid 2px #26A;
-    border-bottom: solid 2px #26A;
+    border-top: solid 2px #39F;
+    border-bottom: solid 2px #39F;
+
+    text-shadow: 2px 2px 2px white, -2px -2px 2px white;
+    
+}
+
+h2 > span {
+    position: absolute;
+    bottom: -1.3rem;
+    right: 0;
+    display: block;
+
+    font-size: 1rem;
+    text-align: left;
+    font-style: italic;
+    color: #888;
+    text-shadow: 2px 2px 2px white;;
+}
+
+@media screen and (max-width: 850px) {
+    div.content {
+        flex-direction: column;
+    }
 }
