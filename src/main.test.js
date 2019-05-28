@@ -10,7 +10,7 @@ const {
 
 describe("createJoki 0.9.1", () => {
     it("Identifier must be of correct version", () => {
-        expect(identifier).toBe("0.9.1-alpha");
+        expect(identifier).toBe("0.9.1");
     });
 
     it("Test that createJoki funtion has valid api", () => {

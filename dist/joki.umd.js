@@ -406,9 +406,7 @@
 
     }
 
-    // import pkg from "../package.json";
-
-    const identifier = "0.9.1-alpha"; //pcg.version;
+    const identifier = "0.9.1";
 
     exports.createJoki = createJoki;
     exports.createMockService = createMockService;

@@ -400,8 +400,6 @@ function createMockService(jokiInstance, serviceId, eventHandlers={}) {
 
 }
 
-// import pkg from "../package.json";
-
-const identifier = "0.9.1-alpha"; //pcg.version;
+const identifier = "0.9.1";
 
 export { createJoki, createMockService, identifier };
