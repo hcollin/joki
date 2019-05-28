@@ -1,11 +1,8 @@
-
-
 * {
     margin: 0;
     padding: 0;
     outline: 0;
 }
-
 
 body {
     position: relative;
@@ -17,11 +14,11 @@ body {
     justify-content: center;
 
     font-size: 16px;
-    font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+    font-family: "Franklin Gothic Medium", "Arial Narrow", Arial, sans-serif;
 }
 
 div.background {
-    background-color: #26A;
+    background-color: #26a;
     position: absolute;
     top: 0;
     bottom: 0;
@@ -39,7 +36,12 @@ div.background div.part-1 {
     height: 50%;
     border-bottom-right-radius: 200px calc(100% - 100px);
     border-top-right-radius: 25px 100px;
-    
+
+    animation-duration: 15s;
+    animation-name: waves1;
+    animation-iteration-count: infinite;
+
+    box-shadow: 5px 0 10px 2px rgba(0,0,0,0.2);
 }
 div.background div.part-2 {
     background-color: white;
@@ -50,7 +52,12 @@ div.background div.part-2 {
     height: 50%;
     border-bottom-left-radius: 200px 150px;
     border-top-left-radius: 25px 200px;
-    
+
+    animation-duration: 10s;
+    animation-name: waves2;
+    animation-iteration-count: infinite;
+
+    box-shadow: -5px 0 10px 2px rgba(0,0,0,0.2);
 }
 div.background div.part-3 {
     background-color: white;
@@ -61,6 +68,12 @@ div.background div.part-3 {
     height: 50%;
     border-top-right-radius: 200px 150px;
     border-bottom-right-radius: 25px 200px;
+
+    animation-duration: 12s;
+    animation-name: waves3;
+    animation-iteration-count: infinite;
+
+    box-shadow: 5px 10px 10px 2px rgba(0,0,0,0.2);
 }
 div.background div.part-4 {
     background-color: white;
@@ -71,8 +84,13 @@ div.background div.part-4 {
     height: 50%;
     border-top-left-radius: 200px calc(100% - 100px);
     border-bottom-left-radius: 25px 100px;
-}
+    
+    animation-duration: 18s;
+    animation-name: waves4;
+    animation-iteration-count: infinite;
 
+    box-shadow: -5px 10px 10px 2px rgba(0,0,0,0.2);
+}
 
 div.content {
     position: absolute;
@@ -80,7 +98,6 @@ div.content {
     left: 0;
     height: 100vh;
     width: 100%;
-    
 
     z-index: 20;
 
@@ -93,7 +110,6 @@ div.content p.github {
     position: absolute;
     bottom: 2rem;
     right: 2rem;
-
 }
 
 h1 {
@@ -101,8 +117,8 @@ h1 {
     text-transform: uppercase;
     letter-spacing: 0.2rem;
     padding: 1rem;
-    
-    color: #26A;
+
+    color: #26a;
     text-shadow: 2px 2px 2px white, -2px -2px 2px white;
 }
 
@@ -113,11 +129,10 @@ h2 {
     padding: 0.25rem 1rem;
     text-align: center;
 
-    border-top: solid 2px #39F;
-    border-bottom: solid 2px #39F;
+    border-top: solid 2px #39f;
+    border-bottom: solid 2px #39f;
 
     text-shadow: 2px 2px 2px white, -2px -2px 2px white;
-    
 }
 
 h2 > span {
@@ -130,11 +145,79 @@ h2 > span {
     text-align: left;
     font-style: italic;
     color: #888;
-    text-shadow: 2px 2px 2px white;;
+    text-shadow: 2px 2px 2px white;
 }
 
 @media screen and (max-width: 850px) {
     div.content {
         flex-direction: column;
+    }
+}
+
+@keyframes waves1 {
+    0% {
+        border-bottom-right-radius: 200px calc(100% - 100px);
+        border-top-right-radius: 25px 100px;
+    }
+
+    50% {
+        border-bottom-right-radius: 200px calc(100% - 200px);
+        border-top-right-radius: 50px 125px;
+    }
+
+    100% {
+        border-bottom-right-radius: 200px calc(100% - 100px);
+        border-top-right-radius: 25px 100px;
+    }
+}
+
+@keyframes waves2 {
+    0% {
+        border-bottom-left-radius: 200px 150px;
+        border-top-left-radius: 25px 200px;
+    }
+
+    50% {
+        border-bottom-left-radius: 200px 100px;
+        border-top-left-radius: 50px 200px;
+    }
+
+    100% {
+        border-bottom-left-radius: 200px 150px;
+        border-top-left-radius: 25px 200px;
+    }
+}
+
+@keyframes waves3 {
+    0% {
+        border-top-right-radius: 200px 150px;
+        border-bottom-right-radius: 25px 200px;
+    }
+
+    50% {
+        border-top-right-radius: 200px 100px;
+        border-bottom-right-radius: 50px 200px;
+    }
+
+    100% {
+        border-top-right-radius: 200px 150px;
+        border-bottom-right-radius: 25px 200px;
+    }
+}
+
+@keyframes waves4 {
+    0% {
+        border-top-left-radius: 200px calc(100% - 100px);
+        border-bottom-left-radius: 25px 100px;
+    }
+
+    50% {
+        border-top-left-radius: 200px calc(100% - 200px);
+        border-bottom-left-radius: 50px 125px;
+    }
+
+    100% {
+        border-top-left-radius: 200px calc(100% - 100px);
+        border-bottom-left-radius: 25px 100px;
     }
 }
