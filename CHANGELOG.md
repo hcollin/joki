@@ -8,7 +8,7 @@ What is planned for this release
 
 
 
-## 0.9.1 (May 27, 2019)
+## 0.9.1 (May 28, 2019)
 
 Minor update.
 
