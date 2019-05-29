@@ -8,6 +8,10 @@ Joki has no runtime dependencies, but it should be used from within babel compil
 
 Joki is currently used in production, but is still considered to be in early stages of development. So use at your own risk. =)
 
+## Example React Project
+
+A simple example project can be found from [joki-react-simple-example](https://github.com/hcollin/joki-react-simple-example) project.
+
 
 # Installation
 
