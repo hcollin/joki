@@ -148,6 +148,13 @@ h2 > span {
     text-shadow: 2px 2px 2px white;
 }
 
+div.content > img.joki-logo {
+    position: absolute;
+    top: 0rem;
+    left: 0rem;
+    width: 128px;
+}
+
 @media screen and (max-width: 850px) {
     div.content {
         flex-direction: column;
