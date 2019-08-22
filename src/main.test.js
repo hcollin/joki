@@ -128,6 +128,22 @@ describe("createJoki 0.9.1", () => {
         });
     });
 
+    it("Create Service and Remove it", () => {
+        const joki = createJoki();
+
+        createMockService(joki, "testService", {
+            test: "test"
+        });
+
+        expect(joki.listServices()).toEqual(["testService"]);
+
+        joki.removeService("testService");
+
+        expect(joki.listServices()).toEqual([]);
+        
+
+    })
+
     it("Ask from services", () => {
         const joki = createJoki();
 

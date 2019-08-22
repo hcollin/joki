@@ -272,7 +272,7 @@ function createJoki(initialOptions = {}) {
      */
     function removeService(serviceId) {
         if (_services.has(serviceId)) {
-            _txt(`Removed a service with id ${service.id}`);
+            _txt(`Removed a service with id ${serviceId}`);
             _services.delete(serviceId);
         }
     }
