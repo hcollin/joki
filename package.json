@@ -20,7 +20,7 @@
         "rollup-plugin-node-resolve": "^4.0.0",
         "jest": "^24.1.0",
         "jest-fetch-mock": "^2.1.0",
-        "react": "^16.8.1"
+        "react": "^16.9.0"
     },
     "files": [
         "dist"
