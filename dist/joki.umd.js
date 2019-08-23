@@ -11,6 +11,7 @@
      * @param {Object} [initialOptions={}]
      * @param {Boolean} initialOptions.debug - If set to true will write a LOT of debug data to console.
      * @param {Boolean} initialOptions.noInit - If set to true no initialization events are sent to services
+     * @param {Boolean} initialOptions.noLongKey - If set to true, longKey is NOT generated for each event. This may help with performance.
      * @returns {Object} The Joki object that handles the services and events.
      */
     function createJoki(initialOptions = {}) {
@@ -115,6 +116,8 @@
                 event.broadcast === true ? "yes" : "no"
             }\n\tbody length: ${event.body !== undefined ? event.body : "N/A"}`
             );
+            
+            _addLongKeyToEvent(event);
             // Only trigger a service
             if (event.to !== undefined) {
                 const serviceIds =
@@ -198,7 +201,9 @@
                 event.servicesOnly === true ? "to services only" : ""
             }`
             );
+            
             event.broadcast = true;
+            _addLongKeyToEvent(event);
             _services.forEach(service => {
                 service.fn(event);
             });
@@ -329,6 +334,18 @@
                 _listeners.delete(onId);
                 _txt(`Removed listener ${onId}`);
             }
+        }
+
+
+        /**
+         * Creates a long single string key for the event
+         * @param {*} event 
+         */
+        function _addLongKeyToEvent(event) {
+            if(_options.noLongKey === true) return event;
+            const toStr = event.to ? Array.isArray(event.to) ? event.to.join("|") + ":": event.to +":" :  "";
+            event.longKey = `${event.from ? event.from + ">" : ""}${event.broadcast ? "BC>" : ""}${toStr}${event.key ? event.key : ""}`;
+            return event;
         }
 
         /**

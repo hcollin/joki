@@ -2,7 +2,7 @@
     "name": "joki",
     "author": "Henrik Collin <hcollin78@gmail.com>",
     "description": "Event Bus based state management designed to be used with React Hooks",
-    "version": "0.9.1",
+    "version": "0.9.2",
     "license": "MIT",
     "main": "dist/joki.cjs.js",
     "module": "dist/joki.esm.js",
