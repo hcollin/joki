@@ -43,7 +43,8 @@ The `createJoki` function takes one optional object as a parameter that contains
 
     {
         debug: boolean, // defaults to false
-        noInit: boolean // defaults to undefined (identical to setting false)
+        noInit: boolean, // defaults to undefined (identical to setting false),
+        noLongKey: boolean // defaults to false
     }
 
 
@@ -51,6 +52,8 @@ The `createJoki` function takes one optional object as a parameter that contains
 When **debug** is set to true, Joki will start printing information to the console about's it internal processes.
 
 When **noInit** is set to true, Joki will not call initialization Event to services automatically.
+
+When **noLongKey** is set to true, Joki will not add a `longKey` argument to each joki event.
 
 
 # Using Joki
@@ -65,7 +68,7 @@ Joki events can be sent with three separate functions: `trigger`, `ask` and `bro
 const jokiEvent = {
     key: "myEventKey",
     to: "targetOnlyThisService",
-    from: "whoIsSendingThisMessage",    
+    from: "whoIsSendingThisMessage",   
 }
 ```
 
@@ -77,7 +80,25 @@ The **from** parameter is mandatory when sending broadcasts. It should alse be a
 
 Other parameters can be added to the event object too, but most of the data should be wrapped within a parameter called **body** or something similar as some parts of the Joki will modify the root event object.
 
-**NOTICE!** The paramters **syncAsk** and **broadcast** are also reserved as they are used in by `ask` and `broadcast` functions.
+**NOTICE!** The parameters **syncAsk**, **longKey** and **broadcast** are also reserved as they are used by Joki internally.
+
+
+### longKey [new in 0.9.2]
+
+Since 0.9.2 Joki will add a parameter longKey to each event it recieves. This parameter is a combination of **broadcast**, **to**, **from** and **key** parameters, that makes writing event handlers on services easier as they can only compare one value.
+
+LongKey has 4 parts in it: `From>Broadcast>To:Key`, but parts that are not part of the event are also missing from the long key. Here
+are some examples:
+
+| eventObject                                   | longKey            |
+|-----------------------------------------------|--------------------|
+| {to: "Service", key: "test" }                 | Service:test       |
+| {from: "Suite", to: "Service", key: "test" }  | Suite>Service:test |
+| {from: "Suite", broadcast: true, key: "test"} | Suite>BC>test      |
+
+As the process of creating this key for each event is not without some cpu cost, this feature can also be turned of by setting the `noLongKey` parameter to `true` when initializing Joki instance.
+
+  
 
 ## API functions
 

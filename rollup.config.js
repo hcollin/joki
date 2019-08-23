@@ -9,6 +9,9 @@ export default [
             file: pkg.browser,
             name: "busstore",
             format: "umd",
+            globals: {
+                react: "React",
+            },
         },
         plugins: [
             resolve({
@@ -19,9 +22,7 @@ export default [
             }),
         ],
         external: ["react", "react-dom", "uuid"],
-        globals: {
-            react: "React",
-        },
+        
     },
     {
         input: "src/main.js",

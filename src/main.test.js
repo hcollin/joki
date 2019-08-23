@@ -128,6 +128,22 @@ describe("createJoki 0.9.1", () => {
         });
     });
 
+    it("Create Service and Remove it", () => {
+        const joki = createJoki();
+
+        createMockService(joki, "testService", {
+            test: "test"
+        });
+
+        expect(joki.listServices()).toEqual(["testService"]);
+
+        joki.removeService("testService");
+
+        expect(joki.listServices()).toEqual([]);
+        
+
+    })
+
     it("Ask from services", () => {
         const joki = createJoki();
 
@@ -431,6 +447,59 @@ describe("createJoki 0.9.1", () => {
         expect(broadcastFailure).toBeCalledTimes(0);
         expect(broadcastSuccess).toBeCalledTimes(5);
     });
+
+    it("0.9.2: Long key created correctly", async () => {
+        const joki = createJoki();
+
+        createMockService(joki, "AlphaService", {
+            "test": (event) => event.longKey,
+            "brd": event => {
+                expect(event.longKey).toBe("TestSuite>BC>brd");
+            }
+        });
+        createMockService(joki, "BetaService", {
+            "test": (event) => event.longKey
+        });
+
+        const res = await joki.ask({
+            to: "AlphaService",
+            key: "test",
+        });
+
+        expect(await res.AlphaService).toBe("AlphaService:test");
+
+        const res2 = await joki.ask({
+            to: ["AlphaService", "BetaService"],
+            key: "test",
+        });
+
+        expect(await res2.AlphaService).toBe("AlphaService|BetaService:test");
+        expect(await res2.BetaService).toBe("AlphaService|BetaService:test");
+
+        const res3 = await joki.broadcast({
+            from: "TestSuite",
+            key: "brd"
+        });
+
+        expect.assertions(4);
+    });
+
+    it("0.9.2: When noLongKey option is set to true, no longKey is added to the event", async () => {
+        const joki = createJoki({noLongKey: true});
+        createMockService(joki, "AlphaService", {
+            "test": (event) => {
+                expect(event.lonKey).toBeUndefined();
+            }
+        });
+
+        const res = await joki.ask({
+            to: "AlphaService",
+            key: "test"
+        });
+
+        expect.assertions(1);
+    });
+
 });
 
 describe("createMockService", () => {
