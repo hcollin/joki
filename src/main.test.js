@@ -2,10 +2,6 @@ const {
     createJoki,
     createMockService,
     identifier,
-    // connectJoki,
-    // ClassService,
-    // createReducerService,
-    // createFetchService,
 } = require("../dist/joki.cjs.js");
 
 describe("createJoki 0.9.3", () => {
@@ -22,6 +18,8 @@ describe("createJoki 0.9.3", () => {
         expect(typeof joki.removeService).toBe("function");
         expect(typeof joki.listServices).toBe("function");
         expect(typeof joki.options).toBe("function");
+        expect(typeof joki.onInitialize).toBe("function");
+        expect(typeof joki.initServices).toBe("function");
     });
 
     it("createJoki options Api", () => {
@@ -359,6 +357,16 @@ describe("createJoki 0.9.3", () => {
         expect(initListener).toBeCalledTimes(1);
 
         expect(joki.listeners()).toEqual([]);
+    });
+
+    it("0.9.3. If noInit is set to true, onInitialize must throw an error", () => {
+        const joki = createJoki({noInit: true});
+        expect(() => {joki.onInitialize(e => {}); }).toThrow();
+    });
+
+    it("0.9.3. onInitialize callback must be a function", () => {
+        const joki = createJoki();
+        expect(() => {joki.onInitialize(true); }).toThrow();
     });
 
     it("broadcast function must require from and key parameters and trigger all registered servies", () => {

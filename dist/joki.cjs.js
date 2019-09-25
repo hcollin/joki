@@ -337,12 +337,24 @@ function createJoki(initialOptions = {}) {
     /**
      * Allows initialization callbacks outside services.
      * 
+     * Will throw an error if noInit option has been set to true.
+     * 
      * @param {function} callback - The callback that is called when the initServices() function is called
      */
     function onInitialize(callback) {
+
+        if(_options.noInit === true) {
+            throw new Error("Joki options 'noInit' has been set to true, initialization cannot be executed.");
+        }
+
+        if(typeof callback !== "function") {
+            throw new Error("Callback parameter for onInitialize must be a function.");
+        }
+
         if(!_statuses.firstInitDone) {
             _initializingListeners.push(callback);
         } else {
+            
             _txt(`Joki has been initialized already.`, false);
         }
         
