@@ -8,6 +8,7 @@ Object.defineProperty(exports, '__esModule', { value: true });
  *
  * @param {Object} [initialOptions={}]
  * @param {Boolean} initialOptions.debug - If set to true will write a LOT of debug data to console.
+ * @param {Boolean} initialOptions.debugWithWarns - uses console.warn instead of console.debug. Main reason for this is showing logging information when running jest
  * @param {Boolean} initialOptions.noInit - If set to true no initialization events are sent to services
  * @param {Boolean} initialOptions.noLongKey - If set to true, longKey is NOT generated for each event. This may help with performance.
  * @returns {Object} The Joki object that handles the services and events.
@@ -21,6 +22,7 @@ function createJoki(initialOptions = {}) {
 
     // All listeners are store to this map
     const _listeners = new Map();
+    const _initializingListeners = [];
 
     // This counter is used to generate unique ids for listeners.
     // TODO: Make this more robust and preferably something that can be changed with options.
@@ -43,7 +45,7 @@ function createJoki(initialOptions = {}) {
      * @returns {(Promise|Object|Array)} - Returns an array or object depending if the event had property 'to' set or not. Promise will resolve with return value as an argument.
      */
     function ask(event) {
-        _txt(`Ask from ${event.from} about ${event.key}`);
+        _txt(`Ask from ${event.from} about ${event.key}`, event.debug);
 
         if (event.syncAsk === true) {
             return trigger(event);
@@ -71,7 +73,7 @@ function createJoki(initialOptions = {}) {
     function on(event) {
         // If keys is an array, each key will have a separate listener
         if (Array.isArray(event.key)) {
-            _txt(`event.key is an Array with ${event.key.length} keys in it`);
+            _txt(`event.key is an Array with ${event.key.length} keys in it`, event.debug);
             const stops = event.key.map(k => {
                 return on({ ...event, key: k });
             });
@@ -87,12 +89,13 @@ function createJoki(initialOptions = {}) {
         _txt(
             `New listener created for with ${event.key ? "key " + event.key : ""} ${
                 event.from ? "from: " + event.from : ""
-            } `
+            } `,
+            event.debug
         );
         _listeners.set(onId, event);
 
         return () => {
-            _off(onId);
+            _off(onId, event);
         };
     }
 
@@ -112,9 +115,9 @@ function createJoki(initialOptions = {}) {
         _txt(
             `Trigger an event.\n\tfrom: ${event.from}\n\tto: ${event.to}\n\tkey: ${event.key}\n\tbroadcast: ${
                 event.broadcast === true ? "yes" : "no"
-            }\n\tbody length: ${event.body !== undefined ? event.body : "N/A"}`
+            }\n\tbody length: ${event.body !== undefined ? event.body : "N/A"}`, event.debug
         );
-        
+
         _addLongKeyToEvent(event);
         // Only trigger a service
         if (event.to !== undefined) {
@@ -140,7 +143,7 @@ function createJoki(initialOptions = {}) {
 
         const replies = [];
         _listeners.forEach(on => {
-            _txt(`Listener ${on.from} ${on.key} ${on.to}`);
+            _txt(`Listener ${on.from} ${on.key} ${on.to}`, event.debug);
             let match = true;
             // Not really working yet.
 
@@ -155,7 +158,7 @@ function createJoki(initialOptions = {}) {
             _txt(
                 `\nON: F:${on.from} K:${on.key} T:${on.to}\nEV: F:${event.from} K:${event.key} T:${
                     event.to
-                }\n\tMatch? ${match ? "YES" : "NO"}\n`
+                }\n\tMatch? ${match ? "YES" : "NO"}\n`, event.debug
             );
 
             if (match) {
@@ -187,19 +190,19 @@ function createJoki(initialOptions = {}) {
      */
     function broadcast(event) {
         if (event.key === undefined || event.key === null || typeof event.key !== "string") {
-            _txt(`Broadcast from ${event.from} event missing the key parameter.`);
+            _txt(`Broadcast from ${event.from} event missing the key parameter.`, event.debug);
             return;
         }
         if (event.from === undefined || event.from === null || typeof event.from !== "string") {
-            _txt(`Broadcast with key ${event.key} event missing the from parameter.`);
+            _txt(`Broadcast with key ${event.key} event missing the from parameter.`, event.debug);
             return;
         }
         _txt(
             `Broadcast event from ${event.from} to key ${event.key} ${
                 event.servicesOnly === true ? "to services only" : ""
-            }`
+            }`, event.debug
         );
-        
+
         event.broadcast = true;
         _addLongKeyToEvent(event);
         _services.forEach(service => {
@@ -266,7 +269,7 @@ function createJoki(initialOptions = {}) {
         }
 
         service.initialized = _options.noInit === true;
-        _txt(`Added a new service with id ${service.id}`);
+        _txt(`Added a new service with id ${service.id}`, service.debug);
         // console.log("JOKI:service:added", service.id);
         _services.set(service.id, service);
 
@@ -278,10 +281,11 @@ function createJoki(initialOptions = {}) {
     /**
      * Remove service from Joki
      * @param {String} serviceId - The id of the service to be removed
+     * @param {boolean} [debug=false] - debug this call
      */
-    function removeService(serviceId) {
+    function removeService(serviceId, debug=false) {
         if (_services.has(serviceId)) {
-            _txt(`Removed a service with id ${serviceId}`);
+            _txt(`Removed a service with id ${serviceId}`, debug);
             _services.delete(serviceId);
         }
     }
@@ -296,7 +300,9 @@ function createJoki(initialOptions = {}) {
 
     /**
      * Send initialize event to all registered services, if it hasn't been done yet.
-     *
+     * 
+     * Also send initialize event to all listeners
+     * 
      * @param {Object} [data={}] - Data Object included into the initialization body
      */
     function initServices(data = {}) {
@@ -304,6 +310,12 @@ function createJoki(initialOptions = {}) {
             _services.forEach((service, serviceId) => {
                 _initializeService(serviceId, data);
             });
+
+            while(_initializingListeners.length > 0) {
+                const cb = _initializingListeners.pop();
+                cb(data);
+            }
+
             _statuses.firstInitDone = true;
         }
     }
@@ -323,26 +335,42 @@ function createJoki(initialOptions = {}) {
     }
 
     /**
+     * Allows initialization callbacks outside services.
+     * 
+     * @param {function} callback - The callback that is called when the initServices() function is called
+     */
+    function onInitialize(callback) {
+        if(!_statuses.firstInitDone) {
+            _initializingListeners.push(callback);
+        } else {
+            _txt(`Joki has been initialized already.`, false);
+        }
+        
+    }
+
+    /**
      * Remove a listener with Id
      * @param {String} onId
+     * @param {Object} event - The full event
      * @private
      */
-    function _off(onId) {
+    function _off(onId, event) {
         if (_listeners.has(onId)) {
             _listeners.delete(onId);
-            _txt(`Removed listener ${onId}`);
+            _txt(`Removed listener ${onId}`, event.debug);
         }
     }
 
-
     /**
      * Creates a long single string key for the event
-     * @param {*} event 
+     * @param {*} event
      */
     function _addLongKeyToEvent(event) {
-        if(_options.noLongKey === true) return event;
-        const toStr = event.to ? Array.isArray(event.to) ? event.to.join("|") + ":": event.to +":" :  "";
-        event.longKey = `${event.from ? event.from + ">" : ""}${event.broadcast ? "BC>" : ""}${toStr}${event.key ? event.key : ""}`;
+        if (_options.noLongKey === true) return event;
+        const toStr = event.to ? (Array.isArray(event.to) ? event.to.join("|") + ":" : event.to + ":") : "";
+        event.longKey = `${event.from ? event.from + ">" : ""}${event.broadcast ? "BC>" : ""}${toStr}${
+            event.key ? event.key : ""
+        }`;
         return event;
     }
 
@@ -350,11 +378,16 @@ function createJoki(initialOptions = {}) {
      * Writes a message to the console if the option.debug is set to true
      *
      * @param {String} msg - The message to be written to the console
-     * @param {String} [subcategory="Debug"] - The Debug subCategory can be replaced with something else.
+     * @param {boolean} [forceShow=false] - Show debug info, even when debugging is turned off (for debugging single events)
      */
-    function _txt(msg, subcategory = "Debug") {
-        if (_options.debug === true) {
-            console.debug(`Joki:${subcategory}: ${msg}`);
+    function _txt(msg, forceShow = false) {
+        if (_options.debug === true || forceShow) {
+            if(_options.debugWithWarns) {
+                console.warn(`Joki:${forceShow}: ${msg}`);
+            } else {
+                console.debug(`Joki:${forceShow}: ${msg}`);
+            }
+            
         }
     }
 
@@ -369,10 +402,11 @@ function createJoki(initialOptions = {}) {
         removeService,
         listServices,
         initServices,
+        onInitialize,
 
         options,
 
-        isJokiInstance: true
+        isJokiInstance: true,
     };
 }
 
@@ -421,7 +455,7 @@ function createMockService(jokiInstance, serviceId, eventHandlers={}) {
 
 }
 
-const identifier = "0.9.1";
+const identifier = "0.9.3";
 
 exports.createJoki = createJoki;
 exports.createMockService = createMockService;
