@@ -43,6 +43,7 @@ The `createJoki` function takes one optional object as a parameter that contains
 
     {
         debug: boolean, // defaults to false
+        debugWithWarn: boolean, // defaults to false
         noInit: boolean, // defaults to undefined (identical to setting false),
         noLongKey: boolean // defaults to false
     }
@@ -50,6 +51,8 @@ The `createJoki` function takes one optional object as a parameter that contains
 
 
 When **debug** is set to true, Joki will start printing information to the console about's it internal processes.
+
+When **debugWithWarn** is set to true, Joki will print to the console with console.warn instead of console.debug **(NEW in 0.9.3)**
 
 When **noInit** is set to true, Joki will not call initialization Event to services automatically.
 
@@ -68,7 +71,8 @@ Joki events can be sent with three separate functions: `trigger`, `ask` and `bro
 const jokiEvent = {
     key: "myEventKey",
     to: "targetOnlyThisService",
-    from: "whoIsSendingThisMessage",   
+    from: "whoIsSendingThisMessage",
+    debug: true|false
 }
 ```
 
@@ -77,6 +81,8 @@ The main parameter of the Joki Event is **key**. It is the name of the triggered
 The value of parameter **to**  must be an id of a registered service. If the **to** parameter is present in the event Joki sends this event directly to this service and does not trigger other subsribers or services. This parameter can also be an array of strings and the event is sent all those services.
 
 The **from** parameter is mandatory when sending broadcasts. It should alse be attached to events triggered from within services and have the id of the service triggering the event.
+
+**NEW in 0.9.3** The **debug** parameter is optional and can be added to a single event. This will activate debugging for this event only.
 
 Other parameters can be added to the event object too, but most of the data should be wrapped within a parameter called **body** or something similar as some parts of the Joki will modify the root event object.
 
@@ -112,6 +118,7 @@ The joki instance has the following api calls:
 * `removeService` - Remove a service from the Joki
 * `listServices` - List all services currently registered to this Joki instance
 * `initServices` - Send initialization call to all registered Services
+* `onInitialize`- Set a callback(s) to be triggered after services has been initialized **(NEW in 0.9.3)**
 * `listeners` - List all listeners currently subscribed to this Joki instance
 * `options` - list, get or set options for this joki Instance
 
@@ -287,6 +294,20 @@ The initialization event looks like this:
 This event can be used to do initialization of services after for example authorization is finished.
 
 **NOTICE!** If the service is added after the initialization is done, the initialization is called on it immediately. This can be prevented by setting the option **noInit** to *true*.
+
+
+### onInitialize NEW in 0.9.3
+
+`jokiInstance.onInitialize(functionCallBack)`
+
+Register a callback function that is executed when the initServices is called. The Services are initialized first and then these callbacks are executed. The idea here is to allow for example setting some dafault data to a services, without changing the service itself. The same *dataObject* that is sent to services, is also sent to each callback.
+
+```javascript
+jokiInstance.onInitialize(data => {
+    console.log("Initialization executed with data", data.init === true);
+});
+jokiInstance.initServices({init: true});
+```
 
 ### listeners
 

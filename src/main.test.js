@@ -2,15 +2,11 @@ const {
     createJoki,
     createMockService,
     identifier,
-    // connectJoki,
-    // ClassService,
-    // createReducerService,
-    // createFetchService,
 } = require("../dist/joki.cjs.js");
 
-describe("createJoki 0.9.1", () => {
+describe("createJoki 0.9.3", () => {
     it("Identifier must be of correct version", () => {
-        expect(identifier).toBe("0.9.1");
+        expect(identifier).toBe("0.9.3");
     });
 
     it("Test that createJoki funtion has valid api", () => {
@@ -22,6 +18,8 @@ describe("createJoki 0.9.1", () => {
         expect(typeof joki.removeService).toBe("function");
         expect(typeof joki.listServices).toBe("function");
         expect(typeof joki.options).toBe("function");
+        expect(typeof joki.onInitialize).toBe("function");
+        expect(typeof joki.initServices).toBe("function");
     });
 
     it("createJoki options Api", () => {
@@ -132,7 +130,7 @@ describe("createJoki 0.9.1", () => {
         const joki = createJoki();
 
         createMockService(joki, "testService", {
-            test: "test"
+            test: "test",
         });
 
         expect(joki.listServices()).toEqual(["testService"]);
@@ -140,9 +138,7 @@ describe("createJoki 0.9.1", () => {
         joki.removeService("testService");
 
         expect(joki.listServices()).toEqual([]);
-        
-
-    })
+    });
 
     it("Ask from services", () => {
         const joki = createJoki();
@@ -315,11 +311,17 @@ describe("createJoki 0.9.1", () => {
         expect.assertions(14);
     });
 
-    it("Check service initialization", () => {
+    it("0.9.3: Initialization of services and initialization listeners", () => {
         const joki = createJoki();
 
         const initAlpha = jest.fn();
         const initBeta = jest.fn();
+        const initListener = jest.fn();
+
+        joki.onInitialize(data => {
+            expect(data.initialData).toBeTruthy();
+            initListener();
+        });
 
         joki.addService({
             id: "alpha",
@@ -334,7 +336,7 @@ describe("createJoki 0.9.1", () => {
             },
         });
 
-        joki.initServices({});
+        joki.initServices({ initialData: true });
         joki.initServices({});
 
         joki.addService({
@@ -352,6 +354,19 @@ describe("createJoki 0.9.1", () => {
 
         expect(initAlpha).toBeCalledTimes(1);
         expect(initBeta).toBeCalledTimes(1);
+        expect(initListener).toBeCalledTimes(1);
+
+        expect(joki.listeners()).toEqual([]);
+    });
+
+    it("0.9.3. If noInit is set to true, onInitialize must throw an error", () => {
+        const joki = createJoki({noInit: true});
+        expect(() => {joki.onInitialize(e => {}); }).toThrow();
+    });
+
+    it("0.9.3. onInitialize callback must be a function", () => {
+        const joki = createJoki();
+        expect(() => {joki.onInitialize(true); }).toThrow();
     });
 
     it("broadcast function must require from and key parameters and trigger all registered servies", () => {
@@ -452,13 +467,13 @@ describe("createJoki 0.9.1", () => {
         const joki = createJoki();
 
         createMockService(joki, "AlphaService", {
-            "test": (event) => event.longKey,
-            "brd": event => {
+            test: event => event.longKey,
+            brd: event => {
                 expect(event.longKey).toBe("TestSuite>BC>brd");
-            }
+            },
         });
         createMockService(joki, "BetaService", {
-            "test": (event) => event.longKey
+            test: event => event.longKey,
         });
 
         const res = await joki.ask({
@@ -478,28 +493,27 @@ describe("createJoki 0.9.1", () => {
 
         const res3 = await joki.broadcast({
             from: "TestSuite",
-            key: "brd"
+            key: "brd",
         });
 
         expect.assertions(4);
     });
 
     it("0.9.2: When noLongKey option is set to true, no longKey is added to the event", async () => {
-        const joki = createJoki({noLongKey: true});
+        const joki = createJoki({ noLongKey: true });
         createMockService(joki, "AlphaService", {
-            "test": (event) => {
+            test: event => {
                 expect(event.lonKey).toBeUndefined();
-            }
+            },
         });
 
         const res = await joki.ask({
             to: "AlphaService",
-            key: "test"
+            key: "test",
         });
 
         expect.assertions(1);
     });
-
 });
 
 describe("createMockService", () => {
