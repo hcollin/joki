@@ -458,14 +458,13 @@
         function _sendServiceToDevTool(service, state="service") {
             if(jokiDevToolsActive && window.postMessage !== undefined) {
                 try {
-                    window.postMessage({type: "JOKI", state: state, eventData: JSON.stringify(service)}, "*");
+                    window.postMessage({type: "JOKI", state: state, data: JSON.stringify(service)}, "*");
                 } catch(err) {
                     console.error("Failed to send a message to Joki Developer Tool", err);
                     console.log(jokiDevToolsActive);
                     console.log(window);
                     console.log(event);
-                }
-                
+                } 
             }
         }
 
@@ -475,7 +474,14 @@
                 if(event.data.type==="JOKI_DEVELOPER_TOOL" && event.data.state === "initialize") {
                     console.log("Joki Development Tool is present!");
                     jokiDevToolsActive = true;
-                    window.postMessage({type: "JOKI", state: "initialize"}, "*");
+                    window.postMessage({type: "JOKI", state: "initialize", data: {
+                        services: Array.from(_services.values()).map(srv => {
+                            return {
+                                id: srv.id,
+                                initialized: srv.initialized
+                            };
+                        })
+                    }}, "*");
                 }
 
                 if(jokiDevToolsActive === true && event.data.type === "JOKI_DEVELOPER_TOOL" && event.data.state === "getServices") {
