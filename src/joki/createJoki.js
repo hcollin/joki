@@ -29,6 +29,10 @@ export default function createJoki(initialOptions = {}) {
         firstInitDone: _options.noInit !== undefined ? _options.noInit : false,
     };
 
+    
+    let jokiDevToolsActive = false;
+
+
     /**
      * Triggers an event with the expectation of a return value
      *
@@ -42,7 +46,8 @@ export default function createJoki(initialOptions = {}) {
      */
     function ask(event) {
         _txt(`Ask from ${event.from} about ${event.key}`, event.debug);
-
+        event._ask = true;
+        _sendEventToDevTool(event);
         if (event.syncAsk === true) {
             return trigger(event);
         }
@@ -113,8 +118,9 @@ export default function createJoki(initialOptions = {}) {
                 event.broadcast === true ? "yes" : "no"
             }\n\tbody length: ${event.body !== undefined ? event.body : "N/A"}`, event.debug
         );
-
+        
         _addLongKeyToEvent(event);
+        event._ask !== true && _sendEventToDevTool(event);
         // Only trigger a service
         if (event.to !== undefined) {
             const serviceIds =
@@ -199,8 +205,10 @@ export default function createJoki(initialOptions = {}) {
             }`, event.debug
         );
 
-        event.broadcast = true;
+        event.broadcast = true; // This will be depracated later on.
+        event._broadcast = true;
         _addLongKeyToEvent(event);
+        !event._jokiServiceUpdate && _sendEventToDevTool(event);
         _services.forEach(service => {
             service.fn(event);
         });
@@ -268,6 +276,7 @@ export default function createJoki(initialOptions = {}) {
         _txt(`Added a new service with id ${service.id}`, service.debug);
         // console.log("JOKI:service:added", service.id);
         _services.set(service.id, service);
+        _sendServiceToDevTool(service, "serviceNew");
 
         if (_statuses.firstInitDone === true) {
             _initializeService(service.id);
@@ -282,6 +291,7 @@ export default function createJoki(initialOptions = {}) {
     function removeService(serviceId, debug=false) {
         if (_services.has(serviceId)) {
             _txt(`Removed a service with id ${serviceId}`, debug);
+            _sendServiceToDevTool({serviceId: serviceId}, "serviceRemove");
             _services.delete(serviceId);
         }
     }
@@ -326,6 +336,7 @@ export default function createJoki(initialOptions = {}) {
                     key: "initialize",
                     body: data,
                 });
+                _sendServiceToDevTool({serviceId: serviceId, data: data}, "serviceInitialize");
             }
         }
     }
@@ -354,6 +365,23 @@ export default function createJoki(initialOptions = {}) {
             _txt(`Joki has been initialized already.`, false);
         }
         
+    }
+
+    function serviceUpdate(serviceId, newData, customEventObjectParams=false) {
+        const event = Object.assign({}, {
+            from: serviceId,
+            key: "serviceUpdate",
+            _jokiServiceUpdate: true,
+            body: newData
+        }, customEventObjectParams !== false ? customEventObjectParams : {});
+
+        broadcast(event);
+
+        if(jokiDevToolsActive) {
+            // window.postMessage({type: "JOKI", state: "serviceUpdate", serviceId: serviceId, serviceData: JSON.stringify(event)}, "*");
+            _sendServiceToDevTool(event, "serviceUpdate");
+        }
+
     }
 
     /**
@@ -399,6 +427,67 @@ export default function createJoki(initialOptions = {}) {
         }
     }
 
+    /**
+     * Send this event to JOKI Developer Tool with window.postMessage
+     * @param {*} event 
+     */
+    function _sendEventToDevTool(event) {
+        if(jokiDevToolsActive && window.postMessage !== undefined) {
+            try {
+                window.postMessage({type: "JOKI", state: "event", eventData: JSON.stringify(event)}, "*");
+            } catch(err) {
+                console.error("Failed to send a message to Joki Developer Tool", err);
+                console.log(jokiDevToolsActive);
+                console.log(window);
+                console.log(event);
+            }
+            
+        }
+    }
+
+    /**
+     * Send this event to JOKI Developer Tool with window.postMessage
+     * @param {*} event 
+     */
+    function _sendServiceToDevTool(service, state="service") {
+        if(jokiDevToolsActive && window.postMessage !== undefined) {
+            try {
+                window.postMessage({type: "JOKI", state: state, eventData: JSON.stringify(service)}, "*");
+            } catch(err) {
+                console.error("Failed to send a message to Joki Developer Tool", err);
+                console.log(jokiDevToolsActive);
+                console.log(window);
+                console.log(event);
+            }
+            
+        }
+    }
+
+    // Connect Joki Developer Tool if it is present
+    if(window !== undefined) {
+        const devToolMessageHandler = (event) => {
+            if(event.data.type==="JOKI_DEVELOPER_TOOL" && event.data.state === "initialize") {
+                console.log("Joki Development Tool is present!");
+                jokiDevToolsActive = true;
+                window.postMessage({type: "JOKI", state: "initialize"}, "*");
+            }
+
+            if(jokiDevToolsActive === true && event.data.type === "JOKI_DEVELOPER_TOOL" && event.data.state === "getServices") {
+                const servicesData = Array.from(_services.values()).map(srv => {
+                    const cState = srv.fn({to: srv.id, key: "getState"});
+                    return {
+                        if: srv.id,
+                        state: cState
+                    };
+                });
+                window.postMessage({type: "JOKI", state: "services", data: JSON.stringify(servicesData)}, "*");
+            }
+
+        };
+        window.addEventListener("message", devToolMessageHandler);
+    }
+
+
     return {
         ask,
         on,
@@ -411,6 +500,8 @@ export default function createJoki(initialOptions = {}) {
         listServices,
         initServices,
         onInitialize,
+
+        serviceUpdate,
 
         options,
 
