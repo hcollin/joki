@@ -25,7 +25,7 @@ Or if you prefer yarn
 
 # Setting up Joki
 
-Joki exports only one function called `createJoki` and one variable called `ìdentifier `. The function is used to crate a new event bus instance. The identifier contains the version number of the Joki library you are running.
+Joki exports two functions. First one is called `createJoki`and it is used to create an actual instance of Joki. The second one is createMockService which is used mainly for testing. Variable called `ìdentifier` is also exported and it contains the current version of Joki.
 
 Creating a new Joki instance is a simple process
 
